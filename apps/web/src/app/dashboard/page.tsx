@@ -27,6 +27,7 @@ export default function DashboardPage() {
     emailsSent: 0,
     leadsWithWebsites: 0,
     leadsWithoutWebsites: 0,
+    leadsWithUnlinkedWebsites: 0,
     leadsWithPhones: 0,
   });
 
@@ -81,6 +82,7 @@ export default function DashboardPage() {
     const emailsSent = leadList.filter((l) => l.status === 'emailed').length;
     const leadsWithWebsites = leadList.filter((l) => !!l.website_url).length;
     const leadsWithoutWebsites = leadList.filter((l) => !l.website_url).length;
+    const leadsWithUnlinkedWebsites = leadList.filter((l) => Boolean(l.unlinked_gmb_website)).length;
     const leadsWithPhones = leadList.filter((l) => !!l.phone).length;
 
     const scored = leadList.filter((l) => l.audit_data?.healthScore !== undefined);
@@ -95,6 +97,7 @@ export default function DashboardPage() {
       emailsSent,
       leadsWithWebsites,
       leadsWithoutWebsites,
+      leadsWithUnlinkedWebsites,
       leadsWithPhones,
     };
   };

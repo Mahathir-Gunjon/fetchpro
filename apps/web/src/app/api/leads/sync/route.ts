@@ -52,24 +52,29 @@ export async function POST(req: NextRequest) {
         reviews_count: typeof l.reviews_count === 'number' ? l.reviews_count : 0,
         maps_url: l.maps_url || null,
         website_url: l.website_url || null,
+        unlinked_gmb_website: Boolean(l.unlinked_gmb_website),
+        socials: l.socials || null,
         email: l.email || null,
         status: 'pending',
       }))
     );
 
-    // Auto-audit leads with websites
+    // Auto-audit leads with websites in background
     const leadsWithWebsites = insertedLeads.filter((l) => !!l.website_url).slice(0, 5);
     (async () => {
       for (const lead of leadsWithWebsites) {
         if (!lead.website_url) continue;
         try {
-          const auditResult = await auditWebsite(lead.website_url);
+          const auditResult = await auditWebsite(lead.website_url, {
+            unlinkedGmbWebsite: Boolean(lead.unlinked_gmb_website),
+          });
           const pitchResult = await generateColdPitch(lead, auditResult);
 
           await dbUpdateLead(lead.id, {
             status: 'audited',
             audit_data: auditResult,
             email: lead.email || (auditResult.extractedEmails.length > 0 ? auditResult.extractedEmails[0] : null),
+            socials: lead.socials || auditResult.socials,
             ai_subject: pitchResult.subject,
             ai_pitch: pitchResult.pitch,
           });
@@ -82,7 +87,7 @@ export async function POST(req: NextRequest) {
     return corsResponse({
       success: true,
       syncedCount: insertedLeads.length,
-      message: `Successfully synced ${insertedLeads.length} leads to Dashboard!`,
+      message: `Successfully synced ${insertedLeads.length} leads to FetchPro Dashboard!`,
       leads: insertedLeads,
     });
   } catch (error: any) {

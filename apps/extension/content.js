@@ -1,10 +1,10 @@
 /**
- * FetchPro - Google Maps B2B Lead Scraper Content Script
- * Manifest V3 Resilient Engine & Social Links Extractor
+ * FetchPro - Google Maps Deep Lead Scraper & Web Results Analyzer
+ * Manifest V3 Resilient Engine
  */
 
 (function () {
-  console.log('[FetchPro] Content script initialized on:', window.location.href);
+  console.log('[FetchPro] Deep Scraper initialized on:', window.location.href);
 
   let isScraping = false;
   let scrapedLeads = [];
@@ -21,11 +21,9 @@
    * Find the scrollable results feed on Google Maps
    */
   function getScrollContainer() {
-    // 1. Check explicit feed role
     const feed = document.querySelector('div[role="feed"]');
     if (feed) return feed;
 
-    // 2. Check aria labels
     const ariaContainers = document.querySelectorAll(
       'div[aria-label*="Results for"], div[aria-label*="results for"], div[aria-label*="Results"], div[aria-label*="results"]'
     );
@@ -33,13 +31,11 @@
       if (c.scrollHeight > c.clientHeight) return c;
     }
 
-    // 3. Check Google Maps class names
     const m6Containers = document.querySelectorAll('div.m6QErb.DxyBCb, div.m6QErb, div.section-layout');
     for (const c of m6Containers) {
       if (c.scrollHeight > c.clientHeight && c.clientHeight > 200) return c;
     }
 
-    // 4. Fallback search all scrollable elements in left pane
     const allDivs = document.querySelectorAll('div');
     for (const div of allDivs) {
       const style = window.getComputedStyle(div);
@@ -98,17 +94,72 @@
   }
 
   /**
-   * Extract from a single place detail page (e.g. /maps/place/...)
+   * Extract "Web results" & Social Profiles from the opened Place Details panel
+   */
+  function extractWebResultsFromDetailsPane(paneEl) {
+    const root = paneEl || document;
+    const socials = {};
+    let unlinkedWebsite = '';
+
+    // Query all links inside the place pane
+    const allLinks = root.querySelectorAll('a[href^="http"]');
+
+    allLinks.forEach((a) => {
+      const href = a.href;
+      const lower = href.toLowerCase();
+
+      // Check if inside Google Maps internal links
+      if (lower.includes('google.com') || lower.includes('gstatic.com')) {
+        // Check for Google redirect wrapper e.g. google.com/url?q=...
+        if (lower.includes('google.com/url?q=')) {
+          try {
+            const urlParams = new URLSearchParams(href.split('?')[1]);
+            const targetUrl = urlParams.get('q');
+            if (targetUrl) {
+              categorizeLink(targetUrl);
+            }
+          } catch (e) {}
+        }
+        return;
+      }
+
+      categorizeLink(href);
+    });
+
+    function categorizeLink(rawUrl) {
+      const lower = rawUrl.toLowerCase();
+      if (lower.includes('facebook.com') && !lower.includes('/sharer')) {
+        socials.facebook = rawUrl;
+      } else if (lower.includes('instagram.com') && !lower.includes('/p/')) {
+        socials.instagram = rawUrl;
+      } else if (lower.includes('linkedin.com')) {
+        socials.linkedin = rawUrl;
+      } else if (lower.includes('twitter.com') || lower.includes('x.com')) {
+        socials.twitter = rawUrl;
+      } else if (lower.includes('youtube.com')) {
+        socials.youtube = rawUrl;
+      } else if (lower.includes('tiktok.com')) {
+        socials.tiktok = rawUrl;
+      } else if (!unlinkedWebsite && !lower.includes('yelp.com') && !lower.includes('mapquest.com') && !lower.includes('bbb.org') && !lower.includes('yellowpages.com')) {
+        unlinkedWebsite = rawUrl;
+      }
+    }
+
+    return { socials, unlinkedWebsite };
+  }
+
+  /**
+   * Extract from a single place detail page / pane
    */
   function extractSinglePlaceFromDOM() {
-    const nameEl = document.querySelector('h1.DUwDvf, [class*="header-title-title"], h1');
+    const nameEl = document.querySelector('h1.DUwDvf, [class*="header-title-title"], div.x3AX1-LfntMc-header-title-title, h1');
     if (!nameEl || !nameEl.innerText) return 0;
 
     const businessName = cleanText(nameEl.innerText);
-    if (!businessName || businessName.length < 2) return 0;
+    if (!businessName || businessName.length < 2 || businessName.includes('Search this area')) return 0;
 
     const identifier = window.location.href;
-    if (seenIdentifiers.has(identifier)) return 0;
+    const existingIndex = scrapedLeads.findIndex((l) => l.maps_url === identifier || l.business_name.toLowerCase() === businessName.toLowerCase());
 
     // Rating & Reviews
     let rating = 0;
@@ -129,23 +180,24 @@
       if (pMatch) phone = pMatch[0];
     }
 
-    // Website
-    let websiteUrl = '';
+    // Primary GMB Website Button
+    let primaryWebsiteUrl = '';
     const webBtn = document.querySelector('a[data-item-id="authority"], a[aria-label*="Website"], a[data-tooltip*="website"]');
     if (webBtn && webBtn.href) {
-      websiteUrl = webBtn.href;
+      primaryWebsiteUrl = webBtn.href;
     }
 
-    // Social Links
-    const socials = {};
-    const pageAnchors = document.querySelectorAll('a[href*="facebook.com"], a[href*="instagram.com"], a[href*="linkedin.com"], a[href*="twitter.com"], a[href*="x.com"]');
-    pageAnchors.forEach((a) => {
-      const href = a.href;
-      if (href.includes('facebook.com')) socials.facebook = href;
-      if (href.includes('instagram.com')) socials.instagram = href;
-      if (href.includes('linkedin.com')) socials.linkedin = href;
-      if (href.includes('twitter.com') || href.includes('x.com')) socials.twitter = href;
-    });
+    // Extract "Web results" & Socials from Place Pane
+    const { socials, unlinkedWebsite } = extractWebResultsFromDetailsPane(document);
+
+    // If no primary website button on GMB, but a website was found in "Web results"
+    let finalWebsite = primaryWebsiteUrl || unlinkedWebsite || null;
+    let isUnlinkedGmbWebsite = false;
+
+    if (!primaryWebsiteUrl && unlinkedWebsite) {
+      isUnlinkedGmbWebsite = true;
+      finalWebsite = unlinkedWebsite;
+    }
 
     const lead = {
       id: 'ext_' + Date.now() + '_' + Math.random().toString(36).substr(2, 7),
@@ -155,11 +207,24 @@
       reviews_count: reviewsCount || 0,
       status: 'Open',
       maps_url: window.location.href,
-      website_url: websiteUrl || null,
+      website_url: finalWebsite,
+      unlinked_gmb_website: isUnlinkedGmbWebsite,
       socials: Object.keys(socials).length > 0 ? socials : null,
       email: null,
       scraped_at: new Date().toISOString(),
     };
+
+    if (existingIndex !== -1) {
+      // Enrich existing lead with newly found Web results
+      scrapedLeads[existingIndex] = {
+        ...scrapedLeads[existingIndex],
+        website_url: scrapedLeads[existingIndex].website_url || finalWebsite,
+        unlinked_gmb_website: scrapedLeads[existingIndex].unlinked_gmb_website || isUnlinkedGmbWebsite,
+        socials: socials && Object.keys(socials).length > 0 ? socials : scrapedLeads[existingIndex].socials,
+        phone: phone || scrapedLeads[existingIndex].phone,
+      };
+      return 0;
+    }
 
     seenIdentifiers.add(identifier);
     seenIdentifiers.add(businessName.toLowerCase());
@@ -173,8 +238,8 @@
   function extractLeadsFromDOM() {
     let newlyFoundCount = 0;
 
-    // First try single place view
-    if (window.location.href.includes('/maps/place/')) {
+    // Check single place view first
+    if (window.location.href.includes('/maps/place/') || document.querySelector('h1.DUwDvf')) {
       newlyFoundCount += extractSinglePlaceFromDOM();
     }
 
@@ -210,7 +275,6 @@
         mapsUrl = anchor.href;
       }
 
-      // Check unique
       const identifier = mapsUrl || businessName.toLowerCase();
       if (seenIdentifiers.has(identifier)) return;
 
@@ -244,7 +308,7 @@
         operationalStatus = 'Closed';
       }
 
-      // Extract Website URL
+      // Extract Website URL from card
       let websiteUrl = '';
       const webLink = card.querySelector('a[data-value="Website"], a[aria-label*="Website"], a[aria-label*="website"], a.lcr4fd, a[href^="http"]:not([href*="google.com"])');
       if (webLink && webLink.href) {
@@ -272,6 +336,7 @@
         status: operationalStatus,
         maps_url: mapsUrl || window.location.href,
         website_url: websiteUrl || null,
+        unlinked_gmb_website: false,
         socials: null,
         email: null,
         scraped_at: new Date().toISOString(),
@@ -293,10 +358,9 @@
     const container = getScrollContainer();
     let consecutiveNoNew = 0;
 
-    console.log('[LeadFlow] Starting scrape loop on container:', container);
+    console.log('[FetchPro] Starting scrape loop on container:', container);
     updateFloatingHUD('Extracting leads', scrapedLeads.length, true);
 
-    // Initial pass before scroll
     extractLeadsFromDOM();
     chrome.storage.local.set({ leadflow_leads: scrapedLeads });
 
@@ -320,7 +384,7 @@
       }
 
       if (consecutiveNoNew >= 7) {
-        console.log('[LeadFlow] Reached bottom of visible results.');
+        console.log('[FetchPro] Reached bottom of visible results.');
         break;
       }
 
@@ -350,7 +414,7 @@
   }
 
   /**
-   * Chrome Runtime Message Listener
+   * Runtime Message Listener
    */
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'PING') {
@@ -368,7 +432,7 @@
     if (message.type === 'EXTRACT_NOW') {
       extractLeadsFromDOM();
       chrome.storage.local.set({ leadflow_leads: scrapedLeads });
-      updateFloatingHUD('Scraped page', scrapedLeads.length, false);
+      updateFloatingHUD('Scraped page & Web results', scrapedLeads.length, false);
       sendResponse({ status: 'OK', count: scrapedLeads.length, leads: scrapedLeads });
       return true;
     }
@@ -383,7 +447,7 @@
       maxLeadsTarget = message.maxLeads || 30;
 
       runScrapeLoop().catch((err) => {
-        console.error('[LeadFlow] Loop error:', err);
+        console.error('[FetchPro] Loop error:', err);
         isScraping = false;
         updateFloatingHUD('Stopped', scrapedLeads.length, false);
       });
@@ -419,6 +483,17 @@
     return true;
   });
 
+  // Listen to user clicks on Google Maps places to automatically enrich Web results
+  document.addEventListener('click', (e) => {
+    const target = e.target;
+    if (target && (target.closest('a.hfpxzc') || target.closest('div.Nv2PK') || target.closest('[role="article"]'))) {
+      setTimeout(() => {
+        extractSinglePlaceFromDOM();
+        chrome.storage.local.set({ leadflow_leads: scrapedLeads });
+      }, 1000);
+    }
+  });
+
   // Restore cached leads
   chrome.storage.local.get(['leadflow_leads'], (res) => {
     if (res && Array.isArray(res.leadflow_leads) && res.leadflow_leads.length > 0) {
@@ -431,7 +506,7 @@
     }
   });
 
-  // Immediate first pass
+  // Immediate pass
   setTimeout(() => {
     extractLeadsFromDOM();
     if (scrapedLeads.length > 0) {

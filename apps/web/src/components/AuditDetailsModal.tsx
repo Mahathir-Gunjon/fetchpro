@@ -20,6 +20,7 @@ import {
   ExternalLink,
   RotateCw,
   Share2,
+  Link2Off,
 } from 'lucide-react';
 
 interface AuditDetailsModalProps {
@@ -43,6 +44,7 @@ export function AuditDetailsModal({
 
   const audit = lead.audit_data;
   const socials = lead.socials || audit?.socials;
+  const isUnlinkedGmb = Boolean(lead.unlinked_gmb_website);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
@@ -103,6 +105,19 @@ export function AuditDetailsModal({
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* GMB Unlinked Alert Banner */}
+          {isUnlinkedGmb && (
+            <div className="p-4 rounded-xl bg-sky-950/40 border border-sky-500/30 flex items-start gap-3 text-xs text-sky-200 animate-in fade-in">
+              <Link2Off className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-white block mb-0.5">High Conversion Finding: Website Discovered via Web Results</strong>
+                <span>
+                  This business has an active website ({lead.website_url}), but it is <strong>NOT linked</strong> to their Google Maps profile. Potential clients have no "Website" button on their listing, leaking local search leads directly to competitors!
+                </span>
+              </div>
+            </div>
+          )}
+
           {!audit ? (
             <div className="py-12 text-center">
               <AlertCircle className="w-12 h-12 text-amber-400 mx-auto mb-3 opacity-80" />

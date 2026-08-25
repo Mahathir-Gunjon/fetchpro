@@ -14,11 +14,10 @@ import {
   Sparkles,
   Phone,
   Flame,
+  Link2Off,
   CheckSquare,
   Square,
-  ChevronDown,
-  Download,
-  Share2,
+  Globe,
 } from 'lucide-react';
 
 interface LeadsTableProps {
@@ -56,6 +55,7 @@ export function LeadsTable({
     return leads.filter((lead) => {
       // 1. Tab filter
       if (activeTab === 'audited' && lead.status !== 'audited' && lead.status !== 'emailed') return false;
+      if (activeTab === 'unlinked' && !lead.unlinked_gmb_website) return false;
       if (activeTab === 'nowebsite' && !!lead.website_url) return false;
       if (activeTab === 'emailed' && lead.status !== 'emailed') return false;
       if (activeTab === 'critical' && (lead.audit_data?.healthScore === undefined || lead.audit_data.healthScore >= 50)) return false;
@@ -119,6 +119,7 @@ export function LeadsTable({
   const tabLabels: { id: DashboardViewTab; label: string; count: number }[] = [
     { id: 'all', label: 'All Leads', count: leads.length },
     { id: 'audited', label: 'Audited Sites', count: leads.filter((l) => l.status === 'audited' || l.status === 'emailed').length },
+    { id: 'unlinked', label: '⚡ GMB Unlinked', count: leads.filter((l) => Boolean(l.unlinked_gmb_website)).length },
     { id: 'nowebsite', label: 'No Website (Hot)', count: leads.filter((l) => !l.website_url).length },
     { id: 'emailed', label: 'Outreach Sent', count: leads.filter((l) => l.status === 'emailed').length },
     { id: 'critical', label: 'Score < 50', count: leads.filter((l) => l.audit_data?.healthScore !== undefined && l.audit_data.healthScore < 50).length },
@@ -209,7 +210,7 @@ export function LeadsTable({
                 </th>
                 <th className="py-3.5 px-4">Business & Google Rating</th>
                 <th className="py-3.5 px-4">Contact Info</th>
-                <th className="py-3.5 px-4">Socials</th>
+                <th className="py-3.5 px-4">Social Profiles</th>
                 <th className="py-3.5 px-4">Website & Audit Health</th>
                 <th className="py-3.5 px-4">Status & Outreach</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
@@ -227,7 +228,7 @@ export function LeadsTable({
                       <p className="text-xs text-slate-400">
                         {searchQuery
                           ? `No leads matched "${searchQuery}". Try a different term.`
-                          : 'Extract leads from Google Maps using your Chrome extension or click Add Lead.'}
+                          : 'Extract leads from Google Maps using FetchPro Chrome extension or click Add Lead.'}
                       </p>
                       <button
                         onClick={onAddLead}
@@ -243,6 +244,7 @@ export function LeadsTable({
                   const isSelected = selectedIds.has(lead.id);
                   const isAuditing = auditingId === lead.id;
                   const hasNoWebsite = !lead.website_url;
+                  const isUnlinkedGmb = Boolean(lead.unlinked_gmb_website);
                   const socials = lead.socials || lead.audit_data?.socials;
 
                   return (
@@ -386,15 +388,22 @@ export function LeadsTable({
                               onClick={() => onOpenAudit(lead)}
                             />
                             <div className="flex flex-col gap-0.5 truncate max-w-[170px]">
-                              <a
-                                href={lead.website_url!}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-slate-300 hover:text-blue-400 underline decoration-slate-700 truncate font-mono text-[11px]"
-                              >
-                                {lead.website_url!.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
-                              </a>
-                              {lead.audit_data?.ssl ? (
+                              <div className="flex items-center gap-1.5">
+                                <a
+                                  href={lead.website_url!}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-slate-300 hover:text-blue-400 underline decoration-slate-700 truncate font-mono text-[11px]"
+                                >
+                                  {lead.website_url!.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
+                                </a>
+                              </div>
+                              {isUnlinkedGmb ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-400 bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20" title="Found in Web Results, but not connected to primary Google Maps listing!">
+                                  <Link2Off className="w-2.5 h-2.5" />
+                                  <span>GMB Unlinked</span>
+                                </span>
+                              ) : lead.audit_data?.ssl ? (
                                 <span className={`text-[10px] font-semibold ${lead.audit_data.ssl.valid ? 'text-emerald-400' : 'text-rose-400'}`}>
                                   {lead.audit_data.ssl.valid ? '✓ SSL Active' : '✗ No SSL'}
                                 </span>

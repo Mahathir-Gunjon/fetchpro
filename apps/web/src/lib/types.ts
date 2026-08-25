@@ -21,6 +21,7 @@ export interface AuditData {
   healthScore: number; // 0 - 100
   auditedAt: string;
   responseTimeMs: number;
+  unlinkedGmbWebsite?: boolean;
   ssl: {
     hasSsl: boolean;
     valid: boolean;
@@ -66,6 +67,7 @@ export interface Lead {
   reviews_count: number;
   maps_url?: string | null;
   website_url?: string | null;
+  unlinked_gmb_website?: boolean | null; // Discovered in Web Results but missing on GMB profile header
   email?: string | null;
   status: LeadStatus;
   audit_data?: AuditData | null;
@@ -85,6 +87,7 @@ export interface ExtractedLeadInput {
   reviews_count?: number;
   maps_url?: string | null;
   website_url?: string | null;
+  unlinked_gmb_website?: boolean | null;
   email?: string | null;
   socials?: SocialLinks | null;
   status?: string;
@@ -103,5 +106,6 @@ export interface DashboardStats {
   emailsSent: number;
   leadsWithWebsites: number;
   leadsWithoutWebsites: number;
+  leadsWithUnlinkedWebsites: number;
   leadsWithPhones: number;
 }

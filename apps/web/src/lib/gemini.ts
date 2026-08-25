@@ -3,7 +3,11 @@ import { AuditData, Lead, PitchGenerationResult } from './types';
 
 /**
  * Generate a high-converting 3-4 sentence cold outreach email
- * using Google Gemini AI, customized depending on whether the business has a website or not.
+ * using Google Gemini AI, customized depending on:
+ * 1. Has website but NOT linked on GMB profile (Huge conversion leak)
+ * 2. Has Facebook/Instagram only (no official booking website)
+ * 3. Has website with audit flaws (SSL, Mobile, Backdated Copyright, Speed)
+ * 4. Has no website at all (Brand new website pitch)
  */
 export async function generateColdPitch(
   lead: Partial<Lead>,
@@ -13,13 +17,22 @@ export async function generateColdPitch(
   const rating = lead.rating ? `${lead.rating}★` : '';
   const reviewsCount = lead.reviews_count ? `${lead.reviews_count} reviews` : '';
   const websiteUrl = lead.website_url || audit?.url || '';
-  const hasNoWebsite = !websiteUrl;
+  const isUnlinkedGmbWebsite = Boolean(lead.unlinked_gmb_website);
+  const socials = lead.socials || audit?.socials;
+  const hasSocialsOnly = !websiteUrl && Boolean(socials && (socials.facebook || socials.instagram));
+  const hasNoWebsite = !websiteUrl && !hasSocialsOnly;
 
   // Extract key hooks from audit
   const hooks: string[] = [];
-  if (hasNoWebsite) {
-    hooks.push('Business has no active website linked on Google Maps, losing clients to competitors with websites.');
-  } else if (audit) {
+  if (isUnlinkedGmbWebsite) {
+    hooks.push(`Your website (${websiteUrl.replace(/^https?:\/\/(www\.)?/, '')}) is active but NOT linked to your Google Business Profile (no "Website" button on Google Maps).`);
+  } else if (hasSocialsOnly) {
+    hooks.push('Business relies on Facebook/Instagram on Google Maps without a dedicated online booking website.');
+  } else if (hasNoWebsite) {
+    hooks.push('Business has no active website or online booking page listed on Google Maps.');
+  }
+
+  if (audit) {
     if (!audit.ssl.hasSsl || !audit.ssl.valid) {
       hooks.push('Website shows "Not Secure" warning in browsers (missing SSL certificate).');
     }
@@ -43,35 +56,42 @@ export async function generateColdPitch(
     try {
       const ai = new GoogleGenAI({ apiKey });
 
-      let contextDetails = '';
-      if (hasNoWebsite) {
-        contextDetails = `
-- Business: ${businessName} (Google Rating: ${rating} across ${reviewsCount})
-- Core Problem: The business has NO website listed on Google Maps, so customers searching on mobile cannot view pricing, services, or book appointments.
-- Goal: Propose building them a clean, high-converting modern website to turn their 5-star Google reputation into daily booked clients.
+      let angleDescription = '';
+      if (isUnlinkedGmbWebsite) {
+        angleDescription = `
+- Scenario: The business has a website (${websiteUrl}), BUT they forgot to link it to their Google Business listing (their Google Maps profile does not have a "Website" button).
+- Key Point: Customers searching on Google Maps cannot click through to see pricing or book appointments with one tap, causing them to bounce to competitors.
+`;
+      } else if (hasSocialsOnly) {
+        angleDescription = `
+- Scenario: The business has a Facebook/Instagram page, but NO dedicated booking website.
+- Key Point: Social media pages don't allow fast frictionless booking or SEO indexing on Google. Pitch them a modern 1-page booking site.
+`;
+      } else if (hasNoWebsite) {
+        angleDescription = `
+- Scenario: No website found.
+- Key Point: Pitch a brand new high-converting mobile site to capture daily Google Maps search traffic.
 `;
       } else {
-        contextDetails = `
-- Business: ${businessName} (Google Rating: ${rating} across ${reviewsCount})
-- Website: ${websiteUrl}
-- Audit Flaws Found:
+        angleDescription = `
+- Scenario: Website found with specific audit flaws:
 ${hooks.map((h) => `  * ${h}`).join('\n')}
-- Goal: Highlight the exact flaws above and offer a quick 60-second video demo or redesign fix.
 `;
       }
 
       const prompt = `
-You are an expert B2B copywriter for high-end web design and SEO agencies.
+You are an elite B2B sales copywriter for digital growth and web development agencies.
 Write a personalized, ultra-natural 3-4 sentence cold outreach email to "${businessName}".
 
 Context:
-${contextDetails}
+- Business: ${businessName} (Google Rating: ${rating} across ${reviewsCount})
+${angleDescription}
 
 Rules:
 1. Line 1: Genuine compliment on their local reputation / stellar Google Maps reviews.
-2. Line 2-3: Clearly state the exact opportunity (${hasNoWebsite ? 'building a modern website to capture daily search traffic' : 'fixing the specific website flaws found'}).
-3. Line 4: Friendly, zero-pressure call to action (e.g. "I put together a 45-second video mockup—would you be open to seeing it?").
-4. Return ONLY valid JSON format with "subject" and "pitch":
+2. Line 2-3: Point out the exact finding (${isUnlinkedGmbWebsite ? 'their website is missing from their Google Maps profile button' : 'the specific website flaws or opportunity'}).
+3. Line 4: Friendly, zero-pressure call to action (e.g. "I recorded a quick 45-second video walkthrough showing how to fix this—would you be open to seeing it?").
+4. Return ONLY valid JSON format:
 {"subject": "...", "pitch": "..."}
 `;
 
@@ -97,7 +117,7 @@ Rules:
     }
   }
 
-  return generateHeuristicPitch(businessName, rating, reviewsCount, hooks, websiteUrl, hasNoWebsite);
+  return generateHeuristicPitch(businessName, rating, reviewsCount, hooks, websiteUrl, isUnlinkedGmbWebsite, hasSocialsOnly, hasNoWebsite);
 }
 
 function generateHeuristicPitch(
@@ -106,8 +126,36 @@ function generateHeuristicPitch(
   reviewsCount: string,
   hooks: string[],
   websiteUrl: string,
+  isUnlinkedGmbWebsite: boolean,
+  hasSocialsOnly: boolean,
   hasNoWebsite: boolean
 ): PitchGenerationResult {
+  const cleanDomain = websiteUrl ? websiteUrl.replace(/^https?:\/\/(www\.)?/, '').split('/')[0] : '';
+
+  if (isUnlinkedGmbWebsite) {
+    return {
+      subject: `Missing website button for ${businessName} on Google Maps`,
+      pitch:
+        `Hi ${businessName} Team,\n\n` +
+        `Congrats on your fantastic ${rating || '5★'} reputation${reviewsCount ? ` across ${reviewsCount}` : ''} on Google Maps!\n\n` +
+        `I found your website at ${cleanDomain}, but noticed it's currently NOT linked to your Google Business profile (your listing doesn't have a "Website" button). Nearby customers looking for fast estimates might bounce to competitors because they can't view your services in one tap.\n\n` +
+        `I put together a 45-second video showing how to fix this and boost your direct bookings. Would you be open to me sending that over?`,
+      keyHooksUsed: ['Website unlinked on Google My Business'],
+    };
+  }
+
+  if (hasSocialsOnly) {
+    return {
+      subject: `Quick idea for ${businessName}`,
+      pitch:
+        `Hi ${businessName} Team,\n\n` +
+        `Huge congrats on your ${rating || '5★'} rating${reviewsCount ? ` with ${reviewsCount}` : ''} on Google Maps!\n\n` +
+        `I noticed your business uses social media pages on Google rather than a dedicated online booking website, which makes it harder for mobile searchers to request instant quotes.\n\n` +
+        `I created a quick 60-second mockup of a streamlined booking site designed specifically for ${businessName}. Open to seeing it?`,
+      keyHooksUsed: ['Social media only / No dedicated booking site'],
+    };
+  }
+
   if (hasNoWebsite) {
     return {
       subject: `Website proposal for ${businessName}`,
@@ -120,7 +168,6 @@ function generateHeuristicPitch(
     };
   }
 
-  const cleanDomain = websiteUrl ? websiteUrl.replace(/^https?:\/\/(www\.)?/, '').split('/')[0] : '';
   const flawSentence = hooks.length > 0
     ? `While reviewing top-rated local services, I noticed your site (${cleanDomain}) ${hooks[0].toLowerCase()} which may be costing you phone inquiries from mobile visitors.`
     : `While checking out your online presence on ${cleanDomain}, I noticed huge potential to increase your appointment conversions with a modern mobile redesign.`;

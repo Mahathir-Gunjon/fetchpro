@@ -93,10 +93,14 @@ function extractSocialProfiles(html: string): SocialLinks {
 /**
  * Perform deterministic, high-speed audit on target website
  */
-export async function auditWebsite(targetUrl: string): Promise<AuditData> {
+export async function auditWebsite(
+  targetUrl: string,
+  options?: { unlinkedGmbWebsite?: boolean }
+): Promise<AuditData> {
   const cleanUrl = normalizeUrl(targetUrl);
   const startTime = Date.now();
   const currentYear = new Date().getFullYear();
+  const unlinkedGmbWebsite = Boolean(options?.unlinkedGmbWebsite);
 
   let html = '';
   let responseTimeMs = 0;
@@ -108,6 +112,18 @@ export async function auditWebsite(targetUrl: string): Promise<AuditData> {
   const recommendations: string[] = [];
   let score = 100;
 
+  // If website was found in Web Results but not on primary GMB button
+  if (unlinkedGmbWebsite) {
+    score -= 15;
+    issues.push({
+      type: 'error',
+      title: 'Website Not Linked on Google Maps Profile',
+      description: 'The business owns this website, but it is NOT linked to their primary Google Business listing (no "Website" button). Customers searching on Google Maps cannot click through to book.',
+      impactScore: -15,
+    });
+    recommendations.push('Add your website URL to your Google Business Profile to capture mobile search booking traffic.');
+  }
+
   // 1. Fetch website HTML with fast 4s timeout
   try {
     const controller = new AbortController();
@@ -116,7 +132,7 @@ export async function auditWebsite(targetUrl: string): Promise<AuditData> {
     const response = await fetch(cleanUrl, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 (compatible; LeadFlowAuditor/1.0)',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 (compatible; FetchProAuditor/1.0)',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       },
@@ -130,13 +146,12 @@ export async function auditWebsite(targetUrl: string): Promise<AuditData> {
     html = await response.text();
   } catch (error: any) {
     responseTimeMs = Date.now() - startTime;
-    // Fallback HTTP attempt if HTTPS timed out
     if (cleanUrl.startsWith('https://')) {
       try {
         const httpUrl = cleanUrl.replace('https://', 'http://');
         const fallbackRes = await fetch(httpUrl, {
           signal: AbortSignal.timeout(3000),
-          headers: { 'User-Agent': 'Mozilla/5.0 LeadFlowAuditor/1.0' },
+          headers: { 'User-Agent': 'Mozilla/5.0 FetchProAuditor/1.0' },
         });
         html = await fallbackRes.text();
         hasSsl = false;
@@ -152,6 +167,7 @@ export async function auditWebsite(targetUrl: string): Promise<AuditData> {
       healthScore: 15,
       auditedAt: new Date().toISOString(),
       responseTimeMs: responseTimeMs || 4000,
+      unlinkedGmbWebsite,
       ssl: { hasSsl: false, valid: false },
       mobileResponsive: { hasViewport: false, isMobileFriendly: false },
       meta: { hasOgImage: false },
@@ -168,7 +184,7 @@ export async function auditWebsite(targetUrl: string): Promise<AuditData> {
         },
       ],
       keyRecommendations: [
-        'Urgent: The domain appears offline or unreachable. High opportunity to pitch reliable hosting.',
+        'Urgent: The domain appears offline or unreachable. High opportunity to pitch reliable hosting and a modern rebuild.',
       ],
     };
   }
@@ -346,6 +362,7 @@ export async function auditWebsite(targetUrl: string): Promise<AuditData> {
     healthScore: finalScore,
     auditedAt: new Date().toISOString(),
     responseTimeMs,
+    unlinkedGmbWebsite,
     ssl: {
       hasSsl,
       valid: sslValid,

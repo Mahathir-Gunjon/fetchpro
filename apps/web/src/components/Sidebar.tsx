@@ -3,10 +3,10 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Zap,
   Users,
   Globe,
   Flame,
+  Link2Off,
   Send,
   AlertTriangle,
   Plus,
@@ -20,7 +20,7 @@ import {
 import { DashboardStats } from '@/lib/types';
 import { AUTH_STORAGE_KEY } from '@/lib/auth';
 
-export type DashboardViewTab = 'all' | 'audited' | 'nowebsite' | 'emailed' | 'critical';
+export type DashboardViewTab = 'all' | 'audited' | 'unlinked' | 'nowebsite' | 'emailed' | 'critical';
 
 interface SidebarProps {
   currentTab: DashboardViewTab;
@@ -73,6 +73,13 @@ export function Sidebar({
       icon: <Globe className="w-4 h-4" />,
       count: stats.auditedLeads,
       badgeColor: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+    },
+    {
+      id: 'unlinked',
+      label: 'GMB Unlinked Sites',
+      icon: <Link2Off className="w-4 h-4 text-sky-400" />,
+      count: stats.leadsWithUnlinkedWebsites || 0,
+      badgeColor: 'text-sky-400 bg-sky-500/10 border-sky-500/20',
     },
     {
       id: 'nowebsite',
@@ -196,7 +203,7 @@ export function Sidebar({
       <div className="mt-auto pt-4 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-2">
         <div className="flex items-center gap-2 text-slate-300 font-semibold">
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-          <span>FetchPro System Live</span>
+          <span>FetchPro Engine Live</span>
         </div>
         <button
           onClick={handleSignOut}
