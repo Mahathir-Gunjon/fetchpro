@@ -1,10 +1,10 @@
 /**
- * LeadFlow - Google Maps B2B Lead Scraper Content Script
+ * FetchPro - Google Maps B2B Lead Scraper Content Script
  * Manifest V3 Resilient Engine & Social Links Extractor
  */
 
 (function () {
-  console.log('[LeadFlow] Content script initialized on:', window.location.href);
+  console.log('[FetchPro] Content script initialized on:', window.location.href);
 
   let isScraping = false;
   let scrapedLeads = [];
@@ -62,7 +62,7 @@
   function updateFloatingHUD(statusText, count = 0, isRunning = false) {
     if (!floatingBanner) {
       floatingBanner = document.createElement('div');
-      floatingBanner.id = 'leadflow-floating-hud';
+      floatingBanner.id = 'fetchpro-floating-hud';
       floatingBanner.style.cssText = `
         position: fixed;
         bottom: 24px;
@@ -90,7 +90,7 @@
         <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${
           isRunning ? '#10b981' : '#3b82f6'
         }; box-shadow:${isRunning ? '0 0 10px #10b981' : '0 0 6px #3b82f6'};"></span>
-        <strong style="font-weight:700; color:#60a5fa;">LeadFlow</strong>
+        <strong style="font-weight:700; color:#60a5fa;">FetchPro</strong>
       </div>
       <div style="height:14px; width:1px; background:rgba(255,255,255,0.2);"></div>
       <div>${statusText}: <span style="font-weight:700; color:#38bdf8;">${count}</span> leads</div>

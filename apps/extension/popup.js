@@ -1,5 +1,5 @@
 /**
- * LeadFlow - Popup Script
+ * FetchPro - Popup Script
  * Manifest V3 Resilient Engine & Vercel Auto-Detection
  */
 
@@ -28,7 +28,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const apiUrlInput = document.getElementById('api-url');
   const apiKeyInput = document.getElementById('api-key');
   const btnSaveConfig = document.getElementById('btn-save-config');
-  const linkDashboard = document.getElementById('link-dashboard');
   const currentTargetLabel = document.getElementById('current-target-label');
   const btnToggleConfigQuick = document.getElementById('btn-toggle-config-quick');
   const configAccordion = document.getElementById('config-accordion');
@@ -38,7 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let isScraping = false;
   let extractedLeads = [];
 
-  // 1. Auto-detect if any open tab is running a Vercel dashboard or localhost
+  // 1. Auto-detect if any open tab is running a FetchPro dashboard on Vercel or localhost
   try {
     const allTabs = await chrome.tabs.query({});
     for (const t of allTabs) {
@@ -64,7 +63,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const activeUrl = (settings.leadflow_api_url || 'http://localhost:3000').trim().replace(/\/$/, '');
   apiUrlInput.value = activeUrl;
   currentTargetLabel.textContent = activeUrl.replace(/^https?:\/\//, '');
-  linkDashboard.href = `${activeUrl}/dashboard`;
 
   if (settings.leadflow_api_key) {
     apiKeyInput.value = settings.leadflow_api_key;
@@ -103,18 +101,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     mapNotice.classList.add('hidden');
 
     try {
-      // Ping content script
       const response = await chrome.tabs.sendMessage(currentTab.id, { type: 'PING' });
       if (response) {
         if (response.isScraping) setScrapingState(true);
-        // Instant extract pass
         const extractRes = await chrome.tabs.sendMessage(currentTab.id, { type: 'EXTRACT_NOW' });
         if (extractRes && extractRes.leads && extractRes.leads.length > 0) {
           renderLeads(extractRes.leads);
         }
       }
     } catch (err) {
-      console.warn('Content script not active yet, injecting dynamically...');
       try {
         await chrome.scripting.executeScript({
           target: { tabId: currentTab.id },
@@ -128,9 +123,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
           } catch (e) {}
         }, 500);
-      } catch (injErr) {
-        console.error('Script injection failed:', injErr);
-      }
+      } catch (injErr) {}
     }
   } else {
     pageStatusPill.className = 'status-pill status-pill-inactive';
@@ -173,7 +166,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div class="lead-name" title="${escapeHtml(lead.business_name)}">${escapeHtml(lead.business_name)}</div>
           <div class="lead-meta">
             ${lead.rating ? `<span class="lead-badge lead-badge-rating">★ ${lead.rating} (${lead.reviews_count || 0})</span>` : ''}
-            ${lead.website_url ? `<span class="lead-badge lead-badge-web">🌐 Website</span>` : `<span class="lead-badge lead-badge-noweb">No Web</span>`}
+            ${lead.website_url ? `<span class="lead-badge lead-badge-web">🌐 Website</span>` : `<span class="lead-badge lead-badge-noweb">🔥 No Web</span>`}
             ${lead.phone ? `<span class="lead-badge" style="background:rgba(16,185,129,0.15); color:#34d399;">📞 ${escapeHtml(lead.phone)}</span>` : ''}
           </div>
         </div>
@@ -227,7 +220,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           maxLeads
         });
       } catch (err) {
-        console.warn('Sending message failed, injecting script...');
         try {
           await chrome.scripting.executeScript({
             target: { tabId: currentTab.id },
@@ -248,9 +240,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (res && res.leads) {
           renderLeads(res.leads);
         }
-      } catch (err) {
-        console.error('Failed to stop scraping:', err);
-      }
+      } catch (err) {}
     }
   });
 
@@ -296,7 +286,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           })
         });
       } catch (fetchErr) {
-        // Fallback for localhost / 127.0.0.1
         if (rawUrl.includes('localhost')) {
           const fallbackUrl = rawUrl.replace('localhost', '127.0.0.1');
           endpoint = `${fallbackUrl}/api/leads/sync`;
@@ -319,13 +308,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        showFeedback(`Synced ${data.syncedCount || extractedLeads.length} leads to ${rawUrl}! Check your dashboard. 🎉`, true);
+        showFeedback(`Successfully synced ${data.syncedCount || extractedLeads.length} leads to FetchPro Dashboard! 🎉`, true);
       } else {
         throw new Error(data.error || `Server responded with status ${response.status}`);
       }
     } catch (err) {
       console.error('Sync failed:', err);
-      showFeedback(`Sync failed (${err.message}). Make sure Dashboard URL (${rawUrl}) is correct in Settings.`, false);
+      showFeedback(`Sync failed (${err.message}). Verify Dashboard URL (${rawUrl}) in Settings.`, false);
     } finally {
       btnSync.disabled = false;
       syncLabel.textContent = 'Sync Leads to Dashboard';
@@ -349,7 +338,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     currentTargetLabel.textContent = rawUrl.replace(/^https?:\/\//, '');
-    linkDashboard.href = `${rawUrl}/dashboard`;
     configAccordion.open = false;
     showFeedback(`Target URL set to: ${rawUrl}`, true);
   });
@@ -376,7 +364,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `leadflow_leads_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `fetchpro_leads_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

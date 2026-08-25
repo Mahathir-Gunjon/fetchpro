@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "LeadFlow - B2B Lead Generation & Automated Website Audit SaaS",
+  title: "FetchPro - B2B Lead Generation & Automated Website Audit SaaS",
   description: "Scrape Google Maps leads with Manifest V3 Chrome Extension, perform automated website audits, generate high-converting AI cold pitches with Gemini, and dispatch outreach via Resend.",
 };
 

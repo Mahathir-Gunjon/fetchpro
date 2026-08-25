@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Zap,
   Users,
@@ -9,15 +9,16 @@ import {
   Flame,
   Send,
   AlertTriangle,
-  Settings,
   Plus,
   RotateCw,
   Trash2,
   Download,
   Chrome,
   CheckCircle2,
+  LogOut,
 } from 'lucide-react';
 import { DashboardStats } from '@/lib/types';
+import { AUTH_STORAGE_KEY } from '@/lib/auth';
 
 export type DashboardViewTab = 'all' | 'audited' | 'nowebsite' | 'emailed' | 'critical';
 
@@ -44,6 +45,15 @@ export function Sidebar({
   onExportCsv,
   isResetting,
 }: SidebarProps) {
+  const router = useRouter();
+
+  const handleSignOut = () => {
+    try {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    } catch (e) {}
+    router.replace('/');
+  };
+
   const navItems: {
     id: DashboardViewTab;
     label: string;
@@ -66,7 +76,7 @@ export function Sidebar({
     },
     {
       id: 'nowebsite',
-      label: 'No Website (High Intent)',
+      label: 'No Website (Hot)',
       icon: <Flame className="w-4 h-4 text-amber-400" />,
       count: stats.leadsWithoutWebsites,
       badgeColor: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
@@ -80,15 +90,15 @@ export function Sidebar({
     },
     {
       id: 'critical',
-      label: 'Critical Score (< 50)',
+      label: 'Score < 50',
       icon: <AlertTriangle className="w-4 h-4 text-rose-400" />,
-      count: stats.totalLeads > 0 ? stats.totalLeads - stats.auditedLeads : 0, // dynamic
+      count: stats.totalLeads > 0 ? stats.totalLeads - stats.auditedLeads : 0,
       badgeColor: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
     },
   ];
 
   return (
-    <aside className="w-64 shrink-0 hidden lg:flex flex-col border-r border-slate-800/80 bg-slate-950 min-h-[calc(100vh-4rem)] p-4 space-y-6">
+    <aside className="w-64 shrink-0 hidden md:flex flex-col border-r border-slate-800/80 bg-slate-950/95 min-h-[calc(100vh-4rem)] p-4 space-y-6">
       {/* Top CTA */}
       <div className="space-y-2">
         <button
@@ -182,15 +192,19 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* Footer Info */}
-      <div className="mt-auto pt-4 border-t border-slate-800/80 text-[11px] text-slate-400">
-        <div className="flex items-center gap-2 text-slate-300 font-semibold mb-1">
+      {/* Footer Info & Sign out */}
+      <div className="mt-auto pt-4 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-2">
+        <div className="flex items-center gap-2 text-slate-300 font-semibold">
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-          <span>LeadFlow System Active</span>
+          <span>FetchPro System Live</span>
         </div>
-        <p className="text-[10px] text-slate-400 leading-tight">
-          All changes persist in real time across browser reloads.
-        </p>
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
+        >
+          <LogOut className="w-3.5 h-3.5 text-slate-400" />
+          <span>Sign Out</span>
+        </button>
       </div>
     </aside>
   );

@@ -19,9 +19,9 @@ export interface SendEmailResult {
  * Send personalized outreach email via Resend API
  */
 export async function sendOutreachEmail(payload: SendEmailPayload): Promise<SendEmailResult> {
-  const { to, subject, pitchBody, businessName, senderName = 'LeadFlow Outreach' } = payload;
+  const { to, subject, pitchBody, businessName, senderName = 'FetchPro Outreach' } = payload;
   const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL || 'LeadFlow <onboarding@resend.dev>';
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'FetchPro <onboarding@resend.dev>';
 
   // Format plain text into clean HTML email
   const formattedHtml = `
@@ -32,7 +32,7 @@ export async function sendOutreachEmail(payload: SendEmailPayload): Promise<Send
         .join('')}
       <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0 16px 0;" />
       <p style="font-size: 13px; color: #64748b; margin: 0;">
-        Sent to <strong>${businessName}</strong> (${to}) via LeadFlow Outreach.
+        Sent to <strong>${businessName}</strong> (${to}) via FetchPro Outreach.
       </p>
     </div>
   `;
@@ -69,7 +69,7 @@ export async function sendOutreachEmail(payload: SendEmailPayload): Promise<Send
     }
   }
 
-  // Sandbox simulation mode (when API key is missing or testing)
+  // Sandbox simulation mode
   console.log('[Resend Sandbox] Email simulated to:', to, 'Subject:', subject);
   return {
     success: true,

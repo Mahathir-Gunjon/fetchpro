@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Lead, DashboardStats, ExtractedLeadInput } from '@/lib/types';
 import { Navbar } from '@/components/Navbar';
 import { Sidebar, DashboardViewTab } from '@/components/Sidebar';
@@ -12,8 +13,11 @@ import { AddLeadModal } from '@/components/AddLeadModal';
 import { ExtensionConfigModal } from '@/components/ExtensionConfigModal';
 import { ToastContainer, ToastMessage } from '@/components/Toast';
 import { INITIAL_MOCK_LEADS, SAMPLE_DEMO_LEADS } from '@/lib/mock-data';
+import { AUTH_STORAGE_KEY } from '@/lib/auth';
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [leads, setLeads] = useState<Lead[]>(INITIAL_MOCK_LEADS);
   const [activeTab, setActiveTab] = useState<DashboardViewTab>('all');
   const [stats, setStats] = useState<DashboardStats>({
@@ -50,6 +54,25 @@ export default function DashboardPage() {
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
+
+  // Auth Guard
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (!saved) {
+        router.replace('/');
+        return;
+      }
+      const session = JSON.parse(saved);
+      if (!session.authenticated) {
+        router.replace('/');
+        return;
+      }
+      setIsAuthenticated(true);
+    } catch (e) {
+      router.replace('/');
+    }
+  }, [router]);
 
   // Recalculate stats helper
   const calculateStats = (leadList: Lead[]): DashboardStats => {
@@ -354,12 +377,20 @@ export default function DashboardPage() {
     window.location.href = '/api/leads/export';
   };
 
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-400 text-xs">
+        Verifying FetchPro Admin Session...
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-blue-600 selection:text-white w-full">
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
 
-      {/* Navbar */}
+      {/* Full-width Navbar */}
       <Navbar
         onAddLead={() => setIsAddLeadOpen(true)}
         onOpenExtensionConfig={() => setIsExtensionConfigOpen(true)}
@@ -367,8 +398,8 @@ export default function DashboardPage() {
         isResetting={isResetting}
       />
 
-      {/* Main Workspace with Sidebar */}
-      <div className="flex-1 flex max-w-[1600px] w-full mx-auto">
+      {/* Main Workspace (100% Full Width with Left Sidebar) */}
+      <div className="flex-1 flex w-full">
         {/* Left Sidebar Navigation */}
         <Sidebar
           currentTab={activeTab}
@@ -382,13 +413,13 @@ export default function DashboardPage() {
           isResetting={isResetting}
         />
 
-        {/* Center Main Dashboard Content */}
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 space-y-6 overflow-hidden">
+        {/* Center Main Dashboard Content (Full width) */}
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 space-y-6 overflow-hidden w-full">
           {/* Header Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
-                <span>B2B Lead Pipeline & Website Audits</span>
+                <span>FetchPro Lead Pipeline & Website Audits</span>
               </h1>
               <p className="text-xs text-slate-400 mt-1">
                 Filter target prospects, run high-speed website audits, inspect social links, and dispatch AI pitches.

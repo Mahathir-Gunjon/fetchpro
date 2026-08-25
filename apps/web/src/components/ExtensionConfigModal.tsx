@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Chrome, Copy, Check, ExternalLink, Terminal, ShieldCheck } from 'lucide-react';
+import { X, Chrome, Copy, Check, Terminal } from 'lucide-react';
 
 interface ExtensionConfigModalProps {
   isOpen: boolean;
@@ -15,8 +15,7 @@ export function ExtensionConfigModal({ isOpen, onClose }: ExtensionConfigModalPr
   if (!isOpen) return null;
 
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-  const syncEndpoint = `${currentOrigin}/api/leads/sync`;
-  const extensionPath = `/Users/mahathir/.gemini/antigravity-ide/scratch/leadgen-audit-saas/apps/extension`;
+  const extensionPath = `/Users/mahathir/Desktop/fetchpro-extension`;
 
   const copyToClipboard = (text: string, isUrl: boolean) => {
     navigator.clipboard.writeText(text);
@@ -39,8 +38,8 @@ export function ExtensionConfigModal({ isOpen, onClose }: ExtensionConfigModalPr
               <Chrome className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">Connect Chrome Extension</h2>
-              <p className="text-xs text-slate-400">Scrape Google Maps and sync leads straight into this dashboard</p>
+              <h2 className="text-base font-bold text-white">Connect FetchPro Chrome Extension</h2>
+              <p className="text-xs text-slate-400">Scrape Google Maps and sync leads straight into your private dashboard</p>
             </div>
           </div>
           <button
@@ -84,7 +83,7 @@ export function ExtensionConfigModal({ isOpen, onClose }: ExtensionConfigModalPr
             <div className="flex-1 space-y-1.5">
               <h3 className="font-semibold text-white text-xs uppercase tracking-wider">Configure Dashboard Sync URL</h3>
               <p className="text-xs text-slate-400">
-                In the extension popup, expand <strong>Dashboard API Settings</strong> and set the Web URL to:
+                In the FetchPro extension popup, verify the Target URL is set to your dashboard domain:
               </p>
               <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-emerald-400">
                 <span>{currentOrigin}</span>
@@ -107,7 +106,7 @@ export function ExtensionConfigModal({ isOpen, onClose }: ExtensionConfigModalPr
             <div className="flex-1 space-y-1">
               <h3 className="font-semibold text-white text-xs uppercase tracking-wider">Scrape on Google Maps</h3>
               <p className="text-xs text-slate-400">
-                Search Google Maps for businesses (e.g. <em className="text-slate-200">"Dentists in Miami"</em>), open the LeadFlow popup, click <strong>Start Scraping</strong>, then click <strong>Sync Leads to Dashboard</strong>.
+                Search Google Maps for businesses (e.g. <em className="text-slate-200">"Dentists in Austin"</em>), click <strong>Start Scraping</strong>, then click <strong>Sync Leads to Dashboard</strong>.
               </p>
             </div>
           </div>
@@ -116,11 +115,11 @@ export function ExtensionConfigModal({ isOpen, onClose }: ExtensionConfigModalPr
           <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <Terminal className="w-4 h-4 text-slate-400" />
-              <span className="text-slate-400">Batch Sync API Endpoint:</span>
+              <span className="text-slate-400">Sync API:</span>
               <span className="font-mono text-blue-400">POST /api/leads/sync</span>
             </div>
             <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-              Active & Ready
+              Live & Secure
             </span>
           </div>
         </div>
