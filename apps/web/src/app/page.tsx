@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Zap, Lock, User, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
-import { AUTH_STORAGE_KEY, validateAdminCredentials, DEFAULT_ADMIN_USER, DEFAULT_ADMIN_PASS } from '@/lib/auth';
+import { Zap, Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { AUTH_STORAGE_KEY, validateAdminCredentials } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -43,16 +43,10 @@ export default function LoginPage() {
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
         router.push('/dashboard');
       } else {
-        setErrorMsg('Invalid User ID or Password. Please check your credentials.');
+        setErrorMsg('Invalid User ID or Password.');
         setIsLoading(false);
       }
     }, 400);
-  };
-
-  const handleFillDemo = () => {
-    setUserId(DEFAULT_ADMIN_USER);
-    setPassword(DEFAULT_ADMIN_PASS);
-    setErrorMsg('');
   };
 
   return (
@@ -88,7 +82,7 @@ export default function LoginPage() {
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-              User ID / Email
+              User ID
             </label>
             <div className="relative">
               <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -97,7 +91,7 @@ export default function LoginPage() {
                 required
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
-                placeholder="admin@fetchpro.ai or admin"
+                placeholder="Enter User ID..."
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
               />
             </div>
@@ -132,35 +126,14 @@ export default function LoginPage() {
             disabled={isLoading}
             className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-lg shadow-blue-600/25 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
           >
-            <span>{isLoading ? 'Authenticating...' : 'Sign In to Dashboard'}</span>
+            <span>{isLoading ? 'Signing In...' : 'Sign In to Dashboard'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
-        {/* Credentials Reminder Box */}
-        <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800 text-[11px] text-slate-400 space-y-1.5">
-          <div className="flex items-center justify-between font-semibold text-slate-300">
-            <span className="flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-              <span>Admin Access Pass</span>
-            </span>
-            <button
-              onClick={handleFillDemo}
-              type="button"
-              className="text-sky-400 hover:text-sky-300 underline font-medium"
-            >
-              Auto-Fill
-            </button>
-          </div>
-          <div className="font-mono text-slate-400 text-[10px] space-y-0.5">
-            <div>User ID: <span className="text-slate-200">{DEFAULT_ADMIN_USER}</span></div>
-            <div>Password: <span className="text-slate-200">{DEFAULT_ADMIN_PASS}</span></div>
-          </div>
-        </div>
-
         {/* Footer */}
         <div className="text-center text-[11px] text-slate-400">
-          Protected single-user admin interface for FetchPro.
+          Protected private interface for FetchPro.
         </div>
       </div>
     </div>
