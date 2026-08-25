@@ -1,27 +1,17 @@
 /**
  * LeadFlow - Google Maps B2B Lead Scraper Content Script
- * Manifest V3 Compliant
+ * Manifest V3 Resilient Engine
  */
 
 (function () {
-  // Prevent duplicate script execution
-  if (window.__leadflowInitialized) {
-    return;
-  }
-  window.__leadflowInitialized = true;
-
-  console.log('[LeadFlow] Content script active on Google Maps.');
+  console.log('[LeadFlow] Content script initialized on:', window.location.href);
 
   let isScraping = false;
   let scrapedLeads = [];
   let seenIdentifiers = new Set();
-  let maxLeadsTarget = 50;
-  let scrollInterval = null;
+  let maxLeadsTarget = 30;
   let floatingBanner = null;
 
-  /**
-   * Helper to clean strings
-   */
   function cleanText(text) {
     if (!text) return '';
     return text.replace(/\s+/g, ' ').trim();
@@ -31,28 +21,45 @@
    * Find the scrollable results feed on Google Maps
    */
   function getScrollContainer() {
-    // Standard feed role
+    // 1. Check explicit feed role
     const feed = document.querySelector('div[role="feed"]');
     if (feed) return feed;
 
-    // Alternative container selectors used by Google Maps
-    const ariaFeeds = document.querySelectorAll('div[aria-label*="Results for"], div[aria-label*="results for"]');
-    for (const container of ariaFeeds) {
-      if (container.scrollHeight > container.clientHeight) return container;
+    // 2. Check aria labels
+    const ariaContainers = document.querySelectorAll(
+      'div[aria-label*="Results for"], div[aria-label*="results for"], div[aria-label*="Results"], div[aria-label*="results"]'
+    );
+    for (const c of ariaContainers) {
+      if (c.scrollHeight > c.clientHeight) return c;
     }
 
-    const scrollableDivs = document.querySelectorAll('div.m6QErb.DxyBCb.kA9KIf.dS8AEf');
-    for (const div of scrollableDivs) {
-      if (div.scrollHeight > div.clientHeight) return div;
+    // 3. Check Google Maps class names
+    const m6Containers = document.querySelectorAll('div.m6QErb.DxyBCb, div.m6QErb, div.section-layout');
+    for (const c of m6Containers) {
+      if (c.scrollHeight > c.clientHeight && c.clientHeight > 200) return c;
+    }
+
+    // 4. Fallback search all scrollable elements in left pane
+    const allDivs = document.querySelectorAll('div');
+    for (const div of allDivs) {
+      const style = window.getComputedStyle(div);
+      if (
+        (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+        div.scrollHeight > div.clientHeight &&
+        div.clientHeight > 250 &&
+        div.clientWidth < 650
+      ) {
+        return div;
+      }
     }
 
     return document.body;
   }
 
   /**
-   * Create or update floating in-page scraping status banner
+   * Update floating in-page HUD
    */
-  function updateFloatingBanner(statusText, count = 0, isRunning = false) {
+  function updateFloatingHUD(statusText, count = 0, isRunning = false) {
     if (!floatingBanner) {
       floatingBanner = document.createElement('div');
       floatingBanner.id = 'leadflow-floating-hud';
@@ -60,20 +67,20 @@
         position: fixed;
         bottom: 24px;
         right: 24px;
-        z-index: 999999;
+        z-index: 9999999;
         background: rgba(15, 23, 42, 0.95);
         color: #f8fafc;
-        border: 1px solid rgba(59, 130, 246, 0.4);
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
-        backdrop-filter: blur(12px);
-        border-radius: 12px;
+        border: 1px solid rgba(59, 130, 246, 0.5);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px rgba(59, 130, 246, 0.2);
+        backdrop-filter: blur(16px);
+        border-radius: 14px;
         padding: 12px 18px;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         font-size: 13px;
         display: flex;
         align-items: center;
         gap: 12px;
-        transition: all 0.2s ease;
+        user-select: none;
       `;
       document.body.appendChild(floatingBanner);
     }
@@ -81,119 +88,155 @@
     floatingBanner.innerHTML = `
       <div style="display:flex; align-items:center; gap:8px;">
         <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${
-          isRunning ? '#10b981' : '#64748b'
-        }; box-shadow:${isRunning ? '0 0 10px #10b981' : 'none'}; animation:${
-      isRunning ? 'leadflow-pulse 1.5s infinite' : 'none'
-    };"></span>
-        <strong style="font-weight:600; color:#60a5fa;">LeadFlow</strong>
+          isRunning ? '#10b981' : '#3b82f6'
+        }; box-shadow:${isRunning ? '0 0 10px #10b981' : '0 0 6px #3b82f6'};"></span>
+        <strong style="font-weight:700; color:#60a5fa;">LeadFlow</strong>
       </div>
-      <div style="height:14px; width:1px; background:rgba(255,255,255,0.15);"></div>
+      <div style="height:14px; width:1px; background:rgba(255,255,255,0.2);"></div>
       <div>${statusText}: <span style="font-weight:700; color:#38bdf8;">${count}</span> leads</div>
     `;
-
-    if (!document.getElementById('leadflow-style-tag')) {
-      const style = document.createElement('style');
-      style.id = 'leadflow-style-tag';
-      style.textContent = `
-        @keyframes leadflow-pulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.3); opacity: 0.6; }
-        }
-      `;
-      document.head.appendChild(style);
-    }
-  }
-
-  function removeFloatingBanner() {
-    if (floatingBanner && floatingBanner.parentNode) {
-      floatingBanner.parentNode.removeChild(floatingBanner);
-      floatingBanner = null;
-    }
   }
 
   /**
-   * Scrape currently visible cards in the results pane
+   * Extract from a single place detail page (e.g. /maps/place/...)
+   */
+  function extractSinglePlaceFromDOM() {
+    const nameEl = document.querySelector('h1.DUwDvf, [class*="header-title-title"], h1');
+    if (!nameEl || !nameEl.innerText) return 0;
+
+    const businessName = cleanText(nameEl.innerText);
+    if (!businessName || businessName.length < 2) return 0;
+
+    const identifier = window.location.href;
+    if (seenIdentifiers.has(identifier)) return 0;
+
+    // Rating & Reviews
+    let rating = 0;
+    let reviewsCount = 0;
+    const ratingEl = document.querySelector('div.F7nice, span.MW4etd, [aria-label*="stars"]');
+    if (ratingEl) {
+      const matchRating = (ratingEl.innerText || ratingEl.getAttribute('aria-label') || '').match(/([0-5]\.[0-9]|[0-5])/);
+      if (matchRating) rating = parseFloat(matchRating[1]);
+      const matchRev = (ratingEl.innerText || '').match(/\(?([0-9,]+)\)?/);
+      if (matchRev) reviewsCount = parseInt(matchRev[1].replace(/,/g, ''), 10);
+    }
+
+    // Phone
+    let phone = '';
+    const phoneBtn = document.querySelector('button[data-item-id*="phone"], button[aria-label*="Phone"], [data-tooltip*="phone"]');
+    if (phoneBtn) {
+      const pMatch = (phoneBtn.innerText || phoneBtn.getAttribute('aria-label') || '').match(/(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}/);
+      if (pMatch) phone = pMatch[0];
+    }
+
+    // Website
+    let websiteUrl = '';
+    const webBtn = document.querySelector('a[data-item-id="authority"], a[aria-label*="Website"], a[data-tooltip*="website"]');
+    if (webBtn && webBtn.href) {
+      websiteUrl = webBtn.href;
+    }
+
+    const lead = {
+      id: 'ext_' + Date.now() + '_' + Math.random().toString(36).substr(2, 7),
+      business_name: businessName,
+      phone: phone || null,
+      rating: rating || 0,
+      reviews_count: reviewsCount || 0,
+      status: 'Open',
+      maps_url: window.location.href,
+      website_url: websiteUrl || null,
+      email: null,
+      scraped_at: new Date().toISOString(),
+    };
+
+    seenIdentifiers.add(identifier);
+    seenIdentifiers.add(businessName.toLowerCase());
+    scrapedLeads.push(lead);
+    return 1;
+  }
+
+  /**
+   * Extract search results list from DOM
    */
   function extractLeadsFromDOM() {
-    const cards = document.querySelectorAll(
-      'div[role="article"], div.Nv2PK, div.THOPZb, div.fontHeadlineSmall'
-    );
     let newlyFoundCount = 0;
 
-    cards.forEach((card) => {
-      // Find root element if matched by sub-class
-      const rootCard = card.closest('div.Nv2PK') || card.closest('div[role="article"]') || card;
-      if (!rootCard) return;
+    // First try single place view
+    if (window.location.href.includes('/maps/place/')) {
+      newlyFoundCount += extractSinglePlaceFromDOM();
+    }
+
+    // Find all business links and cards in search feed
+    const placeLinks = document.querySelectorAll(
+      'a.hfpxzc, a[href*="/maps/place/"], div.Nv2PK, div.qBF1Pd, div.fontHeadlineSmall, div[role="article"]'
+    );
+
+    placeLinks.forEach((el) => {
+      const card = el.closest('div.Nv2PK') || el.closest('div[role="article"]') || el.closest('div.THOPZb') || el.parentElement;
+      if (!card) return;
 
       // Extract Business Name
       let businessName = '';
-      const nameEl = rootCard.querySelector('.qBF1Pd, .fontHeadlineSmall, [class*="headline"], h2, div[aria-label]');
+      const nameEl = card.querySelector('.qBF1Pd, .fontHeadlineSmall, h2, [class*="headline"], div[aria-label]');
       if (nameEl) {
         businessName = cleanText(nameEl.innerText || nameEl.getAttribute('aria-label') || '');
       }
 
-      // If missing name, check anchor
       if (!businessName) {
-        const anchorEl = rootCard.querySelector('a.hfpxzc, a[href*="/maps/place/"]');
-        if (anchorEl) {
-          businessName = cleanText(anchorEl.getAttribute('aria-label') || '');
+        const linkEl = card.querySelector('a.hfpxzc, a[href*="/maps/place/"]');
+        if (linkEl) {
+          businessName = cleanText(linkEl.getAttribute('aria-label') || linkEl.innerText || '');
         }
       }
 
-      if (!businessName || businessName.length < 2) return;
+      if (!businessName || businessName.length < 2 || businessName.includes('Search this area')) return;
 
       // Extract Maps URL
       let mapsUrl = '';
-      const mainLink = rootCard.querySelector('a.hfpxzc, a[href*="/maps/place/"], a[href*="google.com/maps"]');
-      if (mainLink) {
-        mapsUrl = mainLink.href;
+      const anchor = card.querySelector('a.hfpxzc, a[href*="/maps/place/"], a[href*="google.com/maps"]');
+      if (anchor && anchor.href) {
+        mapsUrl = anchor.href;
       }
 
-      // Unique identifier (Maps URL or Business Name)
+      // Check unique
       const identifier = mapsUrl || businessName.toLowerCase();
-      if (seenIdentifiers.has(identifier)) {
-        return;
-      }
+      if (seenIdentifiers.has(identifier)) return;
 
-      // Extract Rating
-      let rating = null;
-      const ratingEl = rootCard.querySelector('span.MW4etd, span[aria-label*="stars"], span[aria-label*="star"]');
-      if (ratingEl) {
-        const ratingText = ratingEl.innerText || ratingEl.getAttribute('aria-label') || '';
-        const match = ratingText.match(/([0-5]\.[0-9]|[0-5])/);
-        if (match) {
-          rating = parseFloat(match[1]);
-        }
-      }
-
-      // Extract Reviews Count
+      // Extract Rating & Reviews
+      let rating = 0;
       let reviewsCount = 0;
-      const reviewsEl = rootCard.querySelector('span.UY7F9, span[aria-label*="reviews"], span[aria-label*="review"]');
-      if (reviewsEl) {
-        const reviewText = reviewsEl.innerText || reviewsEl.getAttribute('aria-label') || '';
-        const match = reviewText.match(/\(?([0-9,]+)\)?/);
-        if (match) {
-          reviewsCount = parseInt(match[1].replace(/,/g, ''), 10);
-        }
+      const allCardText = card.innerText || '';
+
+      const ratingEl = card.querySelector('span.MW4etd, span[aria-label*="stars"], span[aria-label*="star"], span[role="img"]');
+      if (ratingEl) {
+        const rText = ratingEl.innerText || ratingEl.getAttribute('aria-label') || '';
+        const m = rText.match(/([0-5]\.[0-9]|[0-5])/);
+        if (m) rating = parseFloat(m[1]);
+      } else {
+        const m = allCardText.match(/\b([1-5]\.[0-9])\b/);
+        if (m) rating = parseFloat(m[1]);
       }
 
-      // Extract Operational Status (Open / Closed)
+      const revEl = card.querySelector('span.UY7F9, span[aria-label*="reviews"], span[aria-label*="review"]');
+      if (revEl) {
+        const m = (revEl.innerText || revEl.getAttribute('aria-label') || '').match(/\(?([0-9,]+)\)?/);
+        if (m) reviewsCount = parseInt(m[1].replace(/,/g, ''), 10);
+      } else {
+        const m = allCardText.match(/\(([0-9,]+)\)/);
+        if (m) reviewsCount = parseInt(m[1].replace(/,/g, ''), 10);
+      }
+
+      // Extract Operational Status
       let operationalStatus = 'Open';
-      const allText = rootCard.innerText || '';
-      if (allText.includes('Closed') || allText.includes('Permanently closed') || allText.includes('Temporarily closed')) {
+      if (allCardText.includes('Closed') || allCardText.includes('Permanently closed')) {
         operationalStatus = 'Closed';
-      } else if (allText.includes('Open 24 hours') || allText.includes('Open') || allText.includes('Opens')) {
-        operationalStatus = 'Open';
       }
 
       // Extract Website URL
       let websiteUrl = '';
-      const websiteLink = rootCard.querySelector(
-        'a[data-value="Website"], a[aria-label*="Website"], a[aria-label*="website"], a.lcr4fd, a[href^="http"]:not([href*="google.com"])'
-      );
-      if (websiteLink && websiteLink.href) {
-        // Clean out Google tracking redirect if present
-        let rawUrl = websiteLink.href;
+      const webLink = card.querySelector('a[data-value="Website"], a[aria-label*="Website"], a[aria-label*="website"], a.lcr4fd, a[href^="http"]:not([href*="google.com"])');
+      if (webLink && webLink.href) {
+        let rawUrl = webLink.href;
         if (rawUrl.includes('google.com/url?q=')) {
           const params = new URLSearchParams(rawUrl.split('?')[1]);
           rawUrl = params.get('q') || rawUrl;
@@ -201,16 +244,15 @@
         websiteUrl = rawUrl;
       }
 
-      // Extract Phone Number via regex in card text
+      // Extract Phone
       let phone = '';
-      const phoneMatch = allText.match(/(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}/);
+      const phoneMatch = allCardText.match(/(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}/);
       if (phoneMatch) {
         phone = cleanText(phoneMatch[0]);
       }
 
-      // Add Lead
       const lead = {
-        id: 'ext_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        id: 'ext_' + Date.now() + '_' + Math.random().toString(36).substr(2, 7),
         business_name: businessName,
         phone: phone || null,
         rating: rating || 0,
@@ -219,10 +261,11 @@
         maps_url: mapsUrl || window.location.href,
         website_url: websiteUrl || null,
         email: null,
-        scraped_at: new Date().toISOString()
+        scraped_at: new Date().toISOString(),
       };
 
       seenIdentifiers.add(identifier);
+      seenIdentifiers.add(businessName.toLowerCase());
       scrapedLeads.push(lead);
       newlyFoundCount++;
     });
@@ -231,86 +274,90 @@
   }
 
   /**
-   * Main auto-scrolling loop
+   * Main auto-scroll loop
    */
   async function runScrapeLoop() {
     const container = getScrollContainer();
-    let consecutiveNoNewResults = 0;
+    let consecutiveNoNew = 0;
 
-    console.log('[LeadFlow] Starting scroll & scrape loop...', { container });
-    updateFloatingBanner('Scraping in progress', scrapedLeads.length, true);
+    console.log('[LeadFlow] Starting scrape loop on container:', container);
+    updateFloatingHUD('Extracting leads', scrapedLeads.length, true);
+
+    // Initial pass before scroll
+    extractLeadsFromDOM();
+    chrome.storage.local.set({ leadflow_leads: scrapedLeads });
 
     while (isScraping && scrapedLeads.length < maxLeadsTarget) {
       const found = extractLeadsFromDOM();
-      
-      // Update UI and storage
-      updateFloatingBanner('Scraping in progress', scrapedLeads.length, true);
+
+      updateFloatingHUD('Extracting leads', scrapedLeads.length, true);
       chrome.storage.local.set({ leadflow_leads: scrapedLeads });
 
-      // Notify popup
       chrome.runtime.sendMessage({
         type: 'SCRAPE_PROGRESS',
         count: scrapedLeads.length,
         maxLeads: maxLeadsTarget,
-        latestLead: scrapedLeads[scrapedLeads.length - 1] || null
+        latestLead: scrapedLeads[scrapedLeads.length - 1] || null,
       }).catch(() => {});
 
       if (found === 0) {
-        consecutiveNoNewResults++;
+        consecutiveNoNew++;
       } else {
-        consecutiveNoNewResults = 0;
+        consecutiveNoNew = 0;
       }
 
-      // Check if end of list reached
-      const endOfListEl = document.querySelector('span.HlvSq, div[class*="endOfList"], div[class*="fontHeadlineSmall"]:empty');
-      if (endOfListEl && endOfListEl.innerText && endOfListEl.innerText.includes("You've reached the end")) {
-        console.log('[LeadFlow] Reached end of Google Maps results.');
-        break;
-      }
-
-      if (consecutiveNoNewResults >= 8) {
-        console.log('[LeadFlow] No new items discovered after multiple scrolls.');
+      if (consecutiveNoNew >= 7) {
+        console.log('[LeadFlow] Reached bottom of visible results.');
         break;
       }
 
       // Scroll container down
       if (container && container !== document.body) {
-        container.scrollTop += 650;
+        container.scrollTop += 750;
+        // Dispatch synthetic wheel event
+        try {
+          container.dispatchEvent(new WheelEvent('wheel', { deltaY: 750, bubbles: true }));
+        } catch (e) {}
       } else {
-        window.scrollBy({ top: 650, behavior: 'smooth' });
+        window.scrollBy({ top: 750, behavior: 'smooth' });
       }
 
-      // Yield time for lazy DOM load
-      await new Promise((resolve) => setTimeout(resolve, 1400));
+      await new Promise((r) => setTimeout(r, 1200));
     }
 
-    // Done scraping
     isScraping = false;
     extractLeadsFromDOM();
     chrome.storage.local.set({ leadflow_leads: scrapedLeads });
-    updateFloatingBanner('Scraping finished', scrapedLeads.length, false);
+    updateFloatingHUD('Extraction complete', scrapedLeads.length, false);
 
     chrome.runtime.sendMessage({
       type: 'SCRAPE_COMPLETED',
       count: scrapedLeads.length,
-      leads: scrapedLeads
+      leads: scrapedLeads,
     }).catch(() => {});
-
-    console.log(`[LeadFlow] Completed scraping. Extracted ${scrapedLeads.length} leads.`);
   }
 
   /**
-   * Listen for commands from Popup
+   * Chrome Runtime Message Listener
    */
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'PING') {
+      const currentFound = extractLeadsFromDOM();
       sendResponse({
         status: 'READY',
         isMaps: window.location.href.includes('google.com/maps'),
         url: window.location.href,
         isScraping,
-        count: scrapedLeads.length
+        count: scrapedLeads.length,
       });
+      return true;
+    }
+
+    if (message.type === 'EXTRACT_NOW') {
+      extractLeadsFromDOM();
+      chrome.storage.local.set({ leadflow_leads: scrapedLeads });
+      updateFloatingHUD('Scraped page', scrapedLeads.length, false);
+      sendResponse({ status: 'OK', count: scrapedLeads.length, leads: scrapedLeads });
       return true;
     }
 
@@ -321,12 +368,12 @@
       }
 
       isScraping = true;
-      maxLeadsTarget = message.maxLeads || 50;
+      maxLeadsTarget = message.maxLeads || 30;
 
       runScrapeLoop().catch((err) => {
-        console.error('[LeadFlow] Scrape loop error:', err);
+        console.error('[LeadFlow] Loop error:', err);
         isScraping = false;
-        updateFloatingBanner('Error occurred', scrapedLeads.length, false);
+        updateFloatingHUD('Stopped', scrapedLeads.length, false);
       });
 
       sendResponse({ status: 'STARTED', maxLeads: maxLeadsTarget });
@@ -335,7 +382,7 @@
 
     if (message.type === 'STOP_SCRAPING') {
       isScraping = false;
-      updateFloatingBanner('Stopped', scrapedLeads.length, false);
+      updateFloatingHUD('Stopped', scrapedLeads.length, false);
       sendResponse({ status: 'STOPPED', count: scrapedLeads.length, leads: scrapedLeads });
       return true;
     }
@@ -349,7 +396,10 @@
       scrapedLeads = [];
       seenIdentifiers.clear();
       chrome.storage.local.set({ leadflow_leads: [] });
-      removeFloatingBanner();
+      if (floatingBanner && floatingBanner.parentNode) {
+        floatingBanner.parentNode.removeChild(floatingBanner);
+        floatingBanner = null;
+      }
       sendResponse({ status: 'CLEARED' });
       return true;
     }
@@ -357,7 +407,7 @@
     return true;
   });
 
-  // Restore saved leads on load
+  // Restore cached leads
   chrome.storage.local.get(['leadflow_leads'], (res) => {
     if (res && Array.isArray(res.leadflow_leads) && res.leadflow_leads.length > 0) {
       scrapedLeads = res.leadflow_leads;
@@ -365,7 +415,16 @@
         const id = lead.maps_url || lead.business_name.toLowerCase();
         seenIdentifiers.add(id);
       });
-      updateFloatingBanner('Cached leads', scrapedLeads.length, false);
+      updateFloatingHUD('Ready', scrapedLeads.length, false);
     }
   });
+
+  // Immediate first pass
+  setTimeout(() => {
+    extractLeadsFromDOM();
+    if (scrapedLeads.length > 0) {
+      chrome.storage.local.set({ leadflow_leads: scrapedLeads });
+      updateFloatingHUD('Found visible leads', scrapedLeads.length, false);
+    }
+  }, 1000);
 })();

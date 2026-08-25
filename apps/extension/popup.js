@@ -1,10 +1,9 @@
 /**
  * LeadFlow - Popup Script
- * Manifest V3 Compliant
+ * Manifest V3 Resilient Engine
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // DOM Elements
   const pageStatusPill = document.getElementById('page-status');
   const pageStatusText = document.getElementById('page-status-text');
   const mapNotice = document.getElementById('map-notice');
@@ -70,23 +69,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.error('Failed to query active tab:', err);
   }
 
-  // Update UI based on active page
-  if (isGoogleMaps) {
+  // Ensure content script is running on Google Maps
+  if (isGoogleMaps && currentTab) {
     pageStatusPill.className = 'status-pill status-pill-active';
     pageStatusText.textContent = 'Google Maps Active';
     mapNotice.classList.add('hidden');
 
-    // Ping content script
     try {
+      // Ping content script
       const response = await chrome.tabs.sendMessage(currentTab.id, { type: 'PING' });
       if (response) {
-        if (response.isScraping) {
-          setScrapingState(true);
+        if (response.isScraping) setScrapingState(true);
+        // Instant extract pass
+        const extractRes = await chrome.tabs.sendMessage(currentTab.id, { type: 'EXTRACT_NOW' });
+        if (extractRes && extractRes.leads && extractRes.leads.length > 0) {
+          renderLeads(extractRes.leads);
         }
       }
     } catch (err) {
-      // Content script might not be injected yet if tab wasn't refreshed
-      console.warn('Content script not answering yet, injecting fallback...');
+      console.warn('Content script not active yet, injecting dynamically...');
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: currentTab.id },
+          files: ['content.js']
+        });
+        setTimeout(async () => {
+          try {
+            const extractRes = await chrome.tabs.sendMessage(currentTab.id, { type: 'EXTRACT_NOW' });
+            if (extractRes && extractRes.leads) {
+              renderLeads(extractRes.leads);
+            }
+          } catch (e) {}
+        }, 500);
+      } catch (injErr) {
+        console.error('Script injection failed:', injErr);
+      }
     }
   } else {
     pageStatusPill.className = 'status-pill status-pill-inactive';
@@ -94,7 +111,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     mapNotice.classList.remove('hidden');
   }
 
-  // Update UI Helper
   function renderLeads(leads) {
     extractedLeads = leads || [];
     statTotal.textContent = extractedLeads.length;
@@ -115,7 +131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <line x1="12" y1="8" x2="12" y2="12"></line>
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
           </svg>
-          <p class="text-xs text-slate-400">No leads scraped yet.</p>
+          <p class="text-xs text-slate-400">Search Google Maps for businesses (e.g. "Dentists in Austin") and click Start Scraping.</p>
         </div>
       `;
       return;
@@ -156,7 +172,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     syncFeedback.classList.remove('hidden');
     setTimeout(() => {
       syncFeedback.classList.add('hidden');
-    }, 4500);
+    }, 6000);
   }
 
   function escapeHtml(str) {
@@ -164,7 +180,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     return str.replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
   }
 
-  // Open Google Maps handler
   btnOpenMaps.addEventListener('click', () => {
     chrome.tabs.create({ url: 'https://www.google.com/maps/search/plumbers' });
   });
@@ -185,9 +200,19 @@ document.addEventListener('DOMContentLoaded', async () => {
           maxLeads
         });
       } catch (err) {
-        console.error('Failed to start scraping:', err);
-        setScrapingState(false);
-        showFeedback('Please refresh the Google Maps tab and try again.', false);
+        console.warn('Sending message failed, injecting script...');
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: currentTab.id },
+            files: ['content.js']
+          });
+          setTimeout(() => {
+            chrome.tabs.sendMessage(currentTab.id, { type: 'START_SCRAPING', maxLeads }).catch(() => {});
+          }, 300);
+        } catch (e) {
+          setScrapingState(false);
+          showFeedback('Please refresh the Google Maps tab and try again.', false);
+        }
       }
     } else {
       setScrapingState(false);
@@ -217,38 +242,63 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Sync to Dashboard API
   btnSync.addEventListener('click', async () => {
-    if (extractedLeads.length === 0) return;
+    if (extractedLeads.length === 0) {
+      showFeedback('No leads to sync yet. Search Google Maps and click Start Scraping.', false);
+      return;
+    }
 
     const rawUrl = (apiUrlInput.value || 'http://localhost:3000').trim().replace(/\/$/, '');
     const apiKey = apiKeyInput.value.trim();
-    const endpoint = `${rawUrl}/api/leads/sync`;
+    let endpoint = `${rawUrl}/api/leads/sync`;
 
     btnSync.disabled = true;
     syncLabel.textContent = 'Syncing...';
 
     try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
-        },
-        body: JSON.stringify({
-          leads: extractedLeads,
-          source: 'chrome-extension'
-        })
-      });
+      let response;
+      try {
+        response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+          },
+          body: JSON.stringify({
+            leads: extractedLeads,
+            source: 'chrome-extension'
+          })
+        });
+      } catch (fetchErr) {
+        // Try 127.0.0.1 fallback if localhost fails
+        if (rawUrl.includes('localhost')) {
+          const fallbackUrl = rawUrl.replace('localhost', '127.0.0.1');
+          endpoint = `${fallbackUrl}/api/leads/sync`;
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+            },
+            body: JSON.stringify({
+              leads: extractedLeads,
+              source: 'chrome-extension'
+            })
+          });
+        } else {
+          throw fetchErr;
+        }
+      }
 
       const data = await response.json();
 
       if (response.ok && data.success) {
-        showFeedback(`Synced ${data.syncedCount || extractedLeads.length} leads to Dashboard! 🎉`, true);
+        showFeedback(`Synced ${data.syncedCount || extractedLeads.length} leads to Dashboard! Open http://localhost:3000/dashboard`, true);
       } else {
-        throw new Error(data.error || `Server responded with ${response.status}`);
+        throw new Error(data.error || `Server responded with status ${response.status}`);
       }
     } catch (err) {
       console.error('Sync failed:', err);
-      showFeedback(`Sync failed: ${err.message}. Check if Web server is running.`, false);
+      showFeedback(`Sync failed (${err.message}). Is your web app running on ${rawUrl}? Run "npm run dev:web" in terminal.`, false);
     } finally {
       btnSync.disabled = false;
       syncLabel.textContent = 'Sync Leads to Dashboard';
@@ -299,22 +349,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.body.removeChild(link);
   });
 
-  // Listen for real-time progress messages from content script
+  // Real-time progress listener
   chrome.runtime.onMessage.addListener((message) => {
     if (message.type === 'SCRAPE_PROGRESS') {
       statTotal.textContent = message.count;
-      if (message.latestLead) {
-        // Retrieve fresh array from storage
-        chrome.storage.local.get(['leadflow_leads'], (res) => {
-          if (res && res.leadflow_leads) {
-            renderLeads(res.leadflow_leads);
-          }
-        });
-      }
+      chrome.storage.local.get(['leadflow_leads'], (res) => {
+        if (res && res.leadflow_leads) {
+          renderLeads(res.leadflow_leads);
+        }
+      });
     } else if (message.type === 'SCRAPE_COMPLETED') {
       setScrapingState(false);
       renderLeads(message.leads);
-      showFeedback(`Extracted ${message.count} leads successfully! Ready to sync.`, true);
+      showFeedback(`Extracted ${message.count} leads! Ready to sync.`, true);
     }
   });
 });

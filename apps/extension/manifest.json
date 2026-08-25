@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "LeadFlow - Google Maps B2B Lead Scraper",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Extract B2B leads directly from Google Maps search results and sync them automatically to your LeadFlow SaaS dashboard for instant website audits and AI outreach.",
   "permissions": [
     "storage",
     "activeTab",
-    "tabs"
+    "tabs",
+    "scripting"
   ],
   "host_permissions": [
     "https://www.google.com/maps/*",

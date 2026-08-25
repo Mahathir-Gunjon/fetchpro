@@ -2,7 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbBatchInsertLeads, dbUpdateLead } from '@/lib/supabase';
 import { auditWebsite } from '@/lib/audit';
 import { generateColdPitch } from '@/lib/gemini';
-import { ExtractedLeadInput, Lead } from '@/lib/types';
+import { ExtractedLeadInput } from '@/lib/types';
+
+// CORS response helper
+function corsResponse(body: any, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+    },
+  });
+}
+
+// OPTIONS preflight
+export async function OPTIONS() {
+  return corsResponse({ ok: true });
+}
 
 // POST /api/leads/sync - Batch sync from Chrome Extension
 export async function POST(req: NextRequest) {
@@ -14,7 +31,7 @@ export async function POST(req: NextRequest) {
     if (serverSecret && authHeader) {
       const token = authHeader.replace('Bearer ', '').trim();
       if (token !== serverSecret) {
-        return NextResponse.json({ success: false, error: 'Unauthorized: Invalid API Key' }, { status: 401 });
+        return corsResponse({ success: false, error: 'Unauthorized: Invalid API Key' }, 401);
       }
     }
 
@@ -22,16 +39,16 @@ export async function POST(req: NextRequest) {
     const rawLeads: ExtractedLeadInput[] = body.leads || [];
 
     if (!Array.isArray(rawLeads) || rawLeads.length === 0) {
-      return NextResponse.json({ success: false, error: 'No leads provided in payload' }, { status: 400 });
+      return corsResponse({ success: false, error: 'No leads provided in payload' }, 400);
     }
 
     // Insert batch of leads
     const insertedLeads = await dbBatchInsertLeads(
       rawLeads.map((l) => ({
-        business_name: l.business_name,
+        business_name: l.business_name || 'Unnamed Business',
         phone: l.phone || null,
-        rating: l.rating || 0,
-        reviews_count: l.reviews_count || 0,
+        rating: typeof l.rating === 'number' ? l.rating : 0,
+        reviews_count: typeof l.reviews_count === 'number' ? l.reviews_count : 0,
         maps_url: l.maps_url || null,
         website_url: l.website_url || null,
         email: l.email || null,
@@ -39,7 +56,7 @@ export async function POST(req: NextRequest) {
       }))
     );
 
-    // Auto-audit leads with websites in parallel (up to 3 concurrent)
+    // Auto-audit leads with websites in parallel (up to 5)
     const leadsWithWebsites = insertedLeads.filter((l) => !!l.website_url).slice(0, 5);
     (async () => {
       for (const lead of leadsWithWebsites) {
@@ -47,7 +64,7 @@ export async function POST(req: NextRequest) {
         try {
           const auditResult = await auditWebsite(lead.website_url);
           const pitchResult = await generateColdPitch(lead, auditResult);
-          
+
           await dbUpdateLead(lead.id, {
             status: 'audited',
             audit_data: auditResult,
@@ -61,17 +78,17 @@ export async function POST(req: NextRequest) {
       }
     })().catch((err) => console.error('[Background Sync Worker Error]', err));
 
-    return NextResponse.json({
+    return corsResponse({
       success: true,
       syncedCount: insertedLeads.length,
-      message: `Successfully synced ${insertedLeads.length} leads. Background audit initiated.`,
+      message: `Successfully synced ${insertedLeads.length} leads to Dashboard!`,
       leads: insertedLeads,
     });
   } catch (error: any) {
     console.error('[Sync API Error]', error);
-    return NextResponse.json(
+    return corsResponse(
       { success: false, error: error.message || 'Failed to sync leads' },
-      { status: 500 }
+      500
     );
   }
 }
