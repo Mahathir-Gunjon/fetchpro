@@ -1,0 +1,28 @@
+{
+  "name": "leadgen-audit-saas-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "B2B Lead Generation & Automated Website Audit SaaS monorepo (Chrome Extension + Next.js Web App)",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm --workspace=apps/web run dev",
+    "dev:web": "npm --workspace=apps/web run dev",
+    "build:web": "npm --workspace=apps/web run build",
+    "start:web": "npm --workspace=apps/web run start",
+    "typecheck": "npm --workspace=apps/web run typecheck"
+  },
+  "keywords": [
+    "lead-generation",
+    "website-audit",
+    "chrome-extension",
+    "google-maps-scraper",
+    "gemini-ai",
+    "resend",
+    "supabase",
+    "saas"
+  ],
+  "author": "",
+  "license": "MIT"
+}

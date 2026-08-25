@@ -1,0 +1,320 @@
+/**
+ * LeadFlow - Popup Script
+ * Manifest V3 Compliant
+ */
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // DOM Elements
+  const pageStatusPill = document.getElementById('page-status');
+  const pageStatusText = document.getElementById('page-status-text');
+  const mapNotice = document.getElementById('map-notice');
+  const btnOpenMaps = document.getElementById('btn-open-maps');
+
+  const statTotal = document.getElementById('stat-total');
+  const statWebsites = document.getElementById('stat-websites');
+  const statPhones = document.getElementById('stat-phones');
+
+  const maxLeadsSelect = document.getElementById('max-leads-select');
+  const btnScrapeToggle = document.getElementById('btn-scrape-toggle');
+  const btnScrapeLabel = document.getElementById('btn-scrape-label');
+  const btnClear = document.getElementById('btn-clear');
+
+  const btnSync = document.getElementById('btn-sync');
+  const syncLabel = document.getElementById('sync-label');
+  const syncFeedback = document.getElementById('sync-feedback');
+
+  const leadsList = document.getElementById('leads-list');
+  const btnExportCsv = document.getElementById('btn-export-csv');
+
+  const apiUrlInput = document.getElementById('api-url');
+  const apiKeyInput = document.getElementById('api-key');
+  const btnSaveConfig = document.getElementById('btn-save-config');
+  const linkDashboard = document.getElementById('link-dashboard');
+
+  let currentTab = null;
+  let isGoogleMaps = false;
+  let isScraping = false;
+  let extractedLeads = [];
+
+  // Load saved settings
+  const settings = await chrome.storage.local.get([
+    'leadflow_api_url',
+    'leadflow_api_key',
+    'leadflow_max_leads',
+    'leadflow_leads'
+  ]);
+
+  if (settings.leadflow_api_url) {
+    apiUrlInput.value = settings.leadflow_api_url;
+    linkDashboard.href = `${settings.leadflow_api_url.replace(/\/$/, '')}/dashboard`;
+  }
+  if (settings.leadflow_api_key) {
+    apiKeyInput.value = settings.leadflow_api_key;
+  }
+  if (settings.leadflow_max_leads) {
+    maxLeadsSelect.value = settings.leadflow_max_leads;
+  }
+  if (Array.isArray(settings.leadflow_leads)) {
+    extractedLeads = settings.leadflow_leads;
+    renderLeads(extractedLeads);
+  }
+
+  // Identify active tab
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    currentTab = tabs[0];
+    if (currentTab && currentTab.url) {
+      isGoogleMaps = currentTab.url.includes('google.com/maps') || currentTab.url.includes('maps.google.com');
+    }
+  } catch (err) {
+    console.error('Failed to query active tab:', err);
+  }
+
+  // Update UI based on active page
+  if (isGoogleMaps) {
+    pageStatusPill.className = 'status-pill status-pill-active';
+    pageStatusText.textContent = 'Google Maps Active';
+    mapNotice.classList.add('hidden');
+
+    // Ping content script
+    try {
+      const response = await chrome.tabs.sendMessage(currentTab.id, { type: 'PING' });
+      if (response) {
+        if (response.isScraping) {
+          setScrapingState(true);
+        }
+      }
+    } catch (err) {
+      // Content script might not be injected yet if tab wasn't refreshed
+      console.warn('Content script not answering yet, injecting fallback...');
+    }
+  } else {
+    pageStatusPill.className = 'status-pill status-pill-inactive';
+    pageStatusText.textContent = 'Not on Google Maps';
+    mapNotice.classList.remove('hidden');
+  }
+
+  // Update UI Helper
+  function renderLeads(leads) {
+    extractedLeads = leads || [];
+    statTotal.textContent = extractedLeads.length;
+
+    const withWeb = extractedLeads.filter((l) => l.website_url).length;
+    const withPhone = extractedLeads.filter((l) => l.phone).length;
+
+    statWebsites.textContent = withWeb;
+    statPhones.textContent = withPhone;
+
+    btnSync.disabled = extractedLeads.length === 0;
+
+    if (extractedLeads.length === 0) {
+      leadsList.innerHTML = `
+        <div class="empty-state">
+          <svg class="empty-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <p class="text-xs text-slate-400">No leads scraped yet.</p>
+        </div>
+      `;
+      return;
+    }
+
+    leadsList.innerHTML = '';
+    extractedLeads.slice(-30).reverse().forEach((lead) => {
+      const item = document.createElement('div');
+      item.className = 'lead-item';
+      item.innerHTML = `
+        <div style="flex:1; overflow:hidden;">
+          <div class="lead-name" title="${escapeHtml(lead.business_name)}">${escapeHtml(lead.business_name)}</div>
+          <div class="lead-meta">
+            ${lead.rating ? `<span class="lead-badge lead-badge-rating">★ ${lead.rating} (${lead.reviews_count || 0})</span>` : ''}
+            ${lead.website_url ? `<span class="lead-badge lead-badge-web">🌐 Website</span>` : `<span class="lead-badge lead-badge-noweb">No Web</span>`}
+            ${lead.phone ? `<span class="lead-badge" style="background:rgba(16,185,129,0.15); color:#34d399;">📞 ${escapeHtml(lead.phone)}</span>` : ''}
+          </div>
+        </div>
+      `;
+      leadsList.appendChild(item);
+    });
+  }
+
+  function setScrapingState(scraping) {
+    isScraping = scraping;
+    if (isScraping) {
+      btnScrapeToggle.className = 'btn btn-danger flex-1';
+      btnScrapeLabel.textContent = 'Stop Scraping';
+    } else {
+      btnScrapeToggle.className = 'btn btn-primary flex-1';
+      btnScrapeLabel.textContent = 'Start Scraping';
+    }
+  }
+
+  function showFeedback(msg, isSuccess = true) {
+    syncFeedback.textContent = msg;
+    syncFeedback.className = `feedback-msg ${isSuccess ? 'feedback-success' : 'feedback-error'}`;
+    syncFeedback.classList.remove('hidden');
+    setTimeout(() => {
+      syncFeedback.classList.add('hidden');
+    }, 4500);
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+  }
+
+  // Open Google Maps handler
+  btnOpenMaps.addEventListener('click', () => {
+    chrome.tabs.create({ url: 'https://www.google.com/maps/search/plumbers' });
+  });
+
+  // Toggle Scraping
+  btnScrapeToggle.addEventListener('click', async () => {
+    if (!isGoogleMaps) {
+      chrome.tabs.create({ url: 'https://www.google.com/maps/search/roofing+contractors' });
+      return;
+    }
+
+    if (!isScraping) {
+      const maxLeads = parseInt(maxLeadsSelect.value, 10) || 30;
+      setScrapingState(true);
+      try {
+        await chrome.tabs.sendMessage(currentTab.id, {
+          type: 'START_SCRAPING',
+          maxLeads
+        });
+      } catch (err) {
+        console.error('Failed to start scraping:', err);
+        setScrapingState(false);
+        showFeedback('Please refresh the Google Maps tab and try again.', false);
+      }
+    } else {
+      setScrapingState(false);
+      try {
+        const res = await chrome.tabs.sendMessage(currentTab.id, { type: 'STOP_SCRAPING' });
+        if (res && res.leads) {
+          renderLeads(res.leads);
+        }
+      } catch (err) {
+        console.error('Failed to stop scraping:', err);
+      }
+    }
+  });
+
+  // Clear leads
+  btnClear.addEventListener('click', async () => {
+    if (confirm('Clear all scraped leads from extension buffer?')) {
+      extractedLeads = [];
+      await chrome.storage.local.set({ leadflow_leads: [] });
+      if (isGoogleMaps && currentTab) {
+        chrome.tabs.sendMessage(currentTab.id, { type: 'CLEAR_LEADS' }).catch(() => {});
+      }
+      renderLeads([]);
+      showFeedback('Leads buffer cleared.', true);
+    }
+  });
+
+  // Sync to Dashboard API
+  btnSync.addEventListener('click', async () => {
+    if (extractedLeads.length === 0) return;
+
+    const rawUrl = (apiUrlInput.value || 'http://localhost:3000').trim().replace(/\/$/, '');
+    const apiKey = apiKeyInput.value.trim();
+    const endpoint = `${rawUrl}/api/leads/sync`;
+
+    btnSync.disabled = true;
+    syncLabel.textContent = 'Syncing...';
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+        },
+        body: JSON.stringify({
+          leads: extractedLeads,
+          source: 'chrome-extension'
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        showFeedback(`Synced ${data.syncedCount || extractedLeads.length} leads to Dashboard! 🎉`, true);
+      } else {
+        throw new Error(data.error || `Server responded with ${response.status}`);
+      }
+    } catch (err) {
+      console.error('Sync failed:', err);
+      showFeedback(`Sync failed: ${err.message}. Check if Web server is running.`, false);
+    } finally {
+      btnSync.disabled = false;
+      syncLabel.textContent = 'Sync Leads to Dashboard';
+    }
+  });
+
+  // Save Settings
+  btnSaveConfig.addEventListener('click', async () => {
+    const rawUrl = (apiUrlInput.value || 'http://localhost:3000').trim();
+    const apiKey = apiKeyInput.value.trim();
+    const maxLeads = maxLeadsSelect.value;
+
+    await chrome.storage.local.set({
+      leadflow_api_url: rawUrl,
+      leadflow_api_key: apiKey,
+      leadflow_max_leads: maxLeads
+    });
+
+    linkDashboard.href = `${rawUrl.replace(/\/$/, '')}/dashboard`;
+    showFeedback('Settings saved successfully!', true);
+  });
+
+  // Direct CSV Export
+  btnExportCsv.addEventListener('click', () => {
+    if (extractedLeads.length === 0) {
+      alert('No leads to export.');
+      return;
+    }
+
+    const headers = ['Business Name', 'Rating', 'Reviews Count', 'Phone', 'Website URL', 'Google Maps URL', 'Status'];
+    const rows = extractedLeads.map((l) => [
+      `"${(l.business_name || '').replace(/"/g, '""')}"`,
+      l.rating || '',
+      l.reviews_count || 0,
+      `"${(l.phone || '').replace(/"/g, '""')}"`,
+      `"${(l.website_url || '').replace(/"/g, '""')}"`,
+      `"${(l.maps_url || '').replace(/"/g, '""')}"`,
+      `"${(l.status || 'Open').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `leadflow_leads_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
+
+  // Listen for real-time progress messages from content script
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'SCRAPE_PROGRESS') {
+      statTotal.textContent = message.count;
+      if (message.latestLead) {
+        // Retrieve fresh array from storage
+        chrome.storage.local.get(['leadflow_leads'], (res) => {
+          if (res && res.leadflow_leads) {
+            renderLeads(res.leadflow_leads);
+          }
+        });
+      }
+    } else if (message.type === 'SCRAPE_COMPLETED') {
+      setScrapingState(false);
+      renderLeads(message.leads);
+      showFeedback(`Extracted ${message.count} leads successfully! Ready to sync.`, true);
+    }
+  });
+});

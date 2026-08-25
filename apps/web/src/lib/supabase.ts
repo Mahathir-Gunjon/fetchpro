@@ -1,0 +1,223 @@
+import { createClient } from '@supabase/supabase-js';
+import { Lead, DashboardStats } from './types';
+import { INITIAL_MOCK_LEADS } from './mock-data';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// Check if valid live Supabase credentials exist
+export const isSupabaseConfigured = Boolean(
+  supabaseUrl &&
+  supabaseAnonKey &&
+  !supabaseUrl.includes('your-project-ref') &&
+  supabaseUrl.startsWith('https://')
+);
+
+// Supabase client instance
+export const supabase = isSupabaseConfigured
+  ? createClient(supabaseUrl!, supabaseServiceKey || supabaseAnonKey!)
+  : null;
+
+/**
+ * In-Memory fallback store for demo mode & local development
+ */
+let inMemoryLeads: Lead[] = [...INITIAL_MOCK_LEADS];
+
+/**
+ * Unified Lead Data Access Layer
+ */
+export async function dbGetLeads(): Promise<Lead[]> {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('[Supabase DB Error] dbGetLeads:', error);
+        return inMemoryLeads;
+      }
+
+      if (data && data.length > 0) {
+        return data as Lead[];
+      }
+    } catch (err) {
+      console.warn('[Supabase Fallback] Using memory store:', err);
+    }
+  }
+
+  return inMemoryLeads;
+}
+
+export async function dbGetLeadById(id: string): Promise<Lead | null> {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (!error && data) {
+        return data as Lead;
+      }
+    } catch (err) {
+      console.warn('[Supabase Fallback] dbGetLeadById error:', err);
+    }
+  }
+
+  return inMemoryLeads.find((l) => l.id === id) || null;
+}
+
+export async function dbCreateLead(leadData: Partial<Lead>): Promise<Lead> {
+  const newLead: Lead = {
+    id: leadData.id || `lead_${Date.now()}_${Math.random().toString(36).substr(2, 7)}`,
+    business_name: leadData.business_name || 'Unnamed Business',
+    phone: leadData.phone || null,
+    rating: leadData.rating || 0,
+    reviews_count: leadData.reviews_count || 0,
+    maps_url: leadData.maps_url || null,
+    website_url: leadData.website_url || null,
+    email: leadData.email || null,
+    status: leadData.status || 'pending',
+    audit_data: leadData.audit_data || null,
+    ai_pitch: leadData.ai_pitch || null,
+    ai_subject: leadData.ai_subject || null,
+    created_at: new Date().toISOString(),
+  };
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .insert([newLead])
+        .select()
+        .single();
+
+      if (!error && data) {
+        return data as Lead;
+      }
+    } catch (err) {
+      console.warn('[Supabase Fallback] dbCreateLead error:', err);
+    }
+  }
+
+  inMemoryLeads.unshift(newLead);
+  return newLead;
+}
+
+export async function dbBatchInsertLeads(leads: Partial<Lead>[]): Promise<Lead[]> {
+  const formattedLeads: Lead[] = leads.map((l) => ({
+    id: l.id || `lead_${Date.now()}_${Math.random().toString(36).substr(2, 7)}`,
+    business_name: l.business_name || 'Unnamed Business',
+    phone: l.phone || null,
+    rating: typeof l.rating === 'number' ? l.rating : 0,
+    reviews_count: typeof l.reviews_count === 'number' ? l.reviews_count : 0,
+    maps_url: l.maps_url || null,
+    website_url: l.website_url || null,
+    email: l.email || null,
+    status: (l.status as any) || 'pending',
+    audit_data: l.audit_data || null,
+    ai_pitch: l.ai_pitch || null,
+    ai_subject: l.ai_subject || null,
+    created_at: new Date().toISOString(),
+  }));
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .insert(formattedLeads)
+        .select();
+
+      if (!error && data) {
+        return data as Lead[];
+      }
+    } catch (err) {
+      console.warn('[Supabase Fallback] dbBatchInsertLeads error:', err);
+    }
+  }
+
+  inMemoryLeads = [...formattedLeads, ...inMemoryLeads];
+  return formattedLeads;
+}
+
+export async function dbUpdateLead(id: string, updates: Partial<Lead>): Promise<Lead | null> {
+  const updatedFields = {
+    ...updates,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .update(updatedFields)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (!error && data) {
+        return data as Lead;
+      }
+    } catch (err) {
+      console.warn('[Supabase Fallback] dbUpdateLead error:', err);
+    }
+  }
+
+  const index = inMemoryLeads.findIndex((l) => l.id === id);
+  if (index !== -1) {
+    inMemoryLeads[index] = {
+      ...inMemoryLeads[index],
+      ...updatedFields,
+    };
+    return inMemoryLeads[index];
+  }
+
+  return null;
+}
+
+export async function dbDeleteLead(id: string): Promise<boolean> {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { error } = await supabase.from('leads').delete().eq('id', id);
+      if (!error) return true;
+    } catch (err) {
+      console.warn('[Supabase Fallback] dbDeleteLead error:', err);
+    }
+  }
+
+  const prevLen = inMemoryLeads.length;
+  inMemoryLeads = inMemoryLeads.filter((l) => l.id !== id);
+  return inMemoryLeads.length < prevLen;
+}
+
+export async function dbResetMockData(): Promise<Lead[]> {
+  inMemoryLeads = [...INITIAL_MOCK_LEADS];
+  return inMemoryLeads;
+}
+
+export async function dbGetStats(): Promise<DashboardStats> {
+  const leads = await dbGetLeads();
+  const totalLeads = leads.length;
+  const auditedLeads = leads.filter((l) => l.status === 'audited' || l.status === 'emailed').length;
+  const emailsSent = leads.filter((l) => l.status === 'emailed').length;
+  const leadsWithWebsites = leads.filter((l) => !!l.website_url).length;
+  const leadsWithPhones = leads.filter((l) => !!l.phone).length;
+
+  const scoredLeads = leads.filter((l) => l.audit_data?.healthScore !== undefined);
+  const averageHealthScore = scoredLeads.length > 0
+    ? Math.round(scoredLeads.reduce((acc, l) => acc + (l.audit_data?.healthScore || 0), 0) / scoredLeads.length)
+    : 0;
+
+  return {
+    totalLeads,
+    auditedLeads,
+    averageHealthScore,
+    emailsSent,
+    leadsWithWebsites,
+    leadsWithPhones,
+  };
+}

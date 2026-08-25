@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LeadFlow - Google Maps Scraper</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased font-sans">
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo-group">
+        <div class="logo-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
+        <div>
+          <h1 class="logo-title">LeadFlow</h1>
+          <p class="logo-subtitle">B2B Maps Lead Extractor</p>
+        </div>
+      </div>
+      <div id="page-status" class="status-pill status-pill-inactive">
+        <span class="status-dot"></span>
+        <span id="page-status-text">Checking Tab...</span>
+      </div>
+    </header>
+
+    <!-- Map Search Notice if not on Google Maps -->
+    <div id="map-notice" class="notice-card hidden">
+      <div class="notice-icon">📍</div>
+      <div class="notice-body">
+        <p class="notice-title">Open Google Maps</p>
+        <p class="notice-desc">Search for any business category (e.g. "Dentists in Austin") on Google Maps to start scraping.</p>
+        <button id="btn-open-maps" class="btn btn-sm btn-outline mt-2">Open Google Maps</button>
+      </div>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-label">Total Leads</span>
+        <span id="stat-total" class="stat-value">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Websites</span>
+        <span id="stat-websites" class="stat-value text-blue-400">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Phones</span>
+        <span id="stat-phones" class="stat-value text-emerald-400">0</span>
+      </div>
+    </div>
+
+    <!-- Main Controls -->
+    <div class="controls-card">
+      <div class="flex items-center justify-between mb-3">
+        <label for="max-leads-select" class="text-xs font-semibold uppercase tracking-wider text-slate-400">Lead Target</label>
+        <select id="max-leads-select" class="select-input">
+          <option value="15">15 Leads</option>
+          <option value="30" selected>30 Leads</option>
+          <option value="50">50 Leads</option>
+          <option value="100">100 Leads</option>
+        </select>
+      </div>
+
+      <div class="flex gap-2">
+        <button id="btn-scrape-toggle" class="btn btn-primary flex-1">
+          <span class="btn-icon">⚡</span>
+          <span id="btn-scrape-label">Start Scraping</span>
+        </button>
+        <button id="btn-clear" class="btn btn-secondary btn-icon-only" title="Clear extracted leads">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Sync Section -->
+    <div class="sync-card">
+      <button id="btn-sync" class="btn btn-success w-full" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+        </svg>
+        <span id="sync-label">Sync Leads to Dashboard</span>
+      </button>
+      <div id="sync-feedback" class="feedback-msg hidden"></div>
+    </div>
+
+    <!-- Leads Preview List -->
+    <div class="leads-section">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="section-heading">Extracted Leads Preview</h2>
+        <button id="btn-export-csv" class="text-xs text-sky-400 hover:text-sky-300 transition-colors">Export CSV</button>
+      </div>
+      <div id="leads-list" class="leads-container">
+        <div class="empty-state">
+          <svg class="empty-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <p class="text-xs text-slate-400">No leads scraped yet.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- API Config Accordion -->
+    <details class="config-accordion">
+      <summary class="config-summary">
+        <span>⚙️ Dashboard API Settings</span>
+        <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </summary>
+      <div class="config-body">
+        <div class="form-group">
+          <label for="api-url" class="form-label">Dashboard Web URL</label>
+          <input type="text" id="api-url" class="text-input" value="http://localhost:3000" placeholder="http://localhost:3000">
+        </div>
+        <div class="form-group">
+          <label for="api-key" class="form-label">API Key / Auth Token (Optional)</label>
+          <input type="password" id="api-key" class="text-input" placeholder="lf_sec_...">
+        </div>
+        <button id="btn-save-config" class="btn btn-sm btn-outline w-full mt-2">Save Settings</button>
+      </div>
+    </details>
+
+    <!-- Footer Links -->
+    <footer class="footer">
+      <a id="link-dashboard" href="http://localhost:3000/dashboard" target="_blank" class="footer-link">
+        Open Web Dashboard →
+      </a>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
