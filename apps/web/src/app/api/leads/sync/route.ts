@@ -4,7 +4,9 @@ import { auditWebsite } from '@/lib/audit';
 import { generateColdPitch } from '@/lib/gemini';
 import { ExtractedLeadInput } from '@/lib/types';
 
-// CORS response helper
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 function corsResponse(body: any, status = 200) {
   return NextResponse.json(body, {
     status,
@@ -12,11 +14,11 @@ function corsResponse(body: any, status = 200) {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
     },
   });
 }
 
-// OPTIONS preflight
 export async function OPTIONS() {
   return corsResponse({ ok: true });
 }
@@ -27,7 +29,6 @@ export async function POST(req: NextRequest) {
     const authHeader = req.headers.get('Authorization');
     const serverSecret = process.env.LEADFLOW_API_SECRET;
 
-    // Optional API Secret check
     if (serverSecret && authHeader) {
       const token = authHeader.replace('Bearer ', '').trim();
       if (token !== serverSecret) {
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
       }))
     );
 
-    // Auto-audit leads with websites in parallel (up to 5)
+    // Auto-audit leads with websites
     const leadsWithWebsites = insertedLeads.filter((l) => !!l.website_url).slice(0, 5);
     (async () => {
       for (const lead of leadsWithWebsites) {

@@ -1,6 +1,6 @@
 /**
  * LeadFlow - Popup Script
- * Manifest V3 Resilient Engine
+ * Manifest V3 Resilient Engine & Vercel Auto-Detection
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -29,13 +29,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   const apiKeyInput = document.getElementById('api-key');
   const btnSaveConfig = document.getElementById('btn-save-config');
   const linkDashboard = document.getElementById('link-dashboard');
+  const currentTargetLabel = document.getElementById('current-target-label');
+  const btnToggleConfigQuick = document.getElementById('btn-toggle-config-quick');
+  const configAccordion = document.getElementById('config-accordion');
 
   let currentTab = null;
   let isGoogleMaps = false;
   let isScraping = false;
   let extractedLeads = [];
 
-  // Load saved settings
+  // 1. Auto-detect if any open tab is running a Vercel dashboard or localhost
+  try {
+    const allTabs = await chrome.tabs.query({});
+    for (const t of allTabs) {
+      if (t.url && (t.url.includes('.vercel.app/dashboard') || t.url.includes('.vercel.app'))) {
+        const origin = new URL(t.url).origin;
+        const saved = await chrome.storage.local.get(['leadflow_api_url']);
+        if (!saved.leadflow_api_url || saved.leadflow_api_url.includes('localhost')) {
+          await chrome.storage.local.set({ leadflow_api_url: origin });
+        }
+        break;
+      }
+    }
+  } catch (e) {}
+
+  // 2. Load saved settings
   const settings = await chrome.storage.local.get([
     'leadflow_api_url',
     'leadflow_api_key',
@@ -43,10 +61,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     'leadflow_leads'
   ]);
 
-  if (settings.leadflow_api_url) {
-    apiUrlInput.value = settings.leadflow_api_url;
-    linkDashboard.href = `${settings.leadflow_api_url.replace(/\/$/, '')}/dashboard`;
-  }
+  const activeUrl = (settings.leadflow_api_url || 'http://localhost:3000').trim().replace(/\/$/, '');
+  apiUrlInput.value = activeUrl;
+  currentTargetLabel.textContent = activeUrl.replace(/^https?:\/\//, '');
+  linkDashboard.href = `${activeUrl}/dashboard`;
+
   if (settings.leadflow_api_key) {
     apiKeyInput.value = settings.leadflow_api_key;
   }
@@ -57,6 +76,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     extractedLeads = settings.leadflow_leads;
     renderLeads(extractedLeads);
   }
+
+  // Quick toggle config
+  btnToggleConfigQuick.addEventListener('click', () => {
+    configAccordion.open = !configAccordion.open;
+    if (configAccordion.open) {
+      apiUrlInput.focus();
+    }
+  });
 
   // Identify active tab
   try {
@@ -131,7 +158,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <line x1="12" y1="8" x2="12" y2="12"></line>
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
           </svg>
-          <p class="text-xs text-slate-400">Search Google Maps for businesses (e.g. "Dentists in Austin") and click Start Scraping.</p>
+          <p class="text-xs text-slate-400">Search Google Maps and click Start Scraping.</p>
         </div>
       `;
       return;
@@ -172,7 +199,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     syncFeedback.classList.remove('hidden');
     setTimeout(() => {
       syncFeedback.classList.add('hidden');
-    }, 6000);
+    }, 7000);
   }
 
   function escapeHtml(str) {
@@ -269,7 +296,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           })
         });
       } catch (fetchErr) {
-        // Try 127.0.0.1 fallback if localhost fails
+        // Fallback for localhost / 127.0.0.1
         if (rawUrl.includes('localhost')) {
           const fallbackUrl = rawUrl.replace('localhost', '127.0.0.1');
           endpoint = `${fallbackUrl}/api/leads/sync`;
@@ -292,13 +319,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        showFeedback(`Synced ${data.syncedCount || extractedLeads.length} leads to Dashboard! Open http://localhost:3000/dashboard`, true);
+        showFeedback(`Synced ${data.syncedCount || extractedLeads.length} leads to ${rawUrl}! Check your dashboard. 🎉`, true);
       } else {
         throw new Error(data.error || `Server responded with status ${response.status}`);
       }
     } catch (err) {
       console.error('Sync failed:', err);
-      showFeedback(`Sync failed (${err.message}). Is your web app running on ${rawUrl}? Run "npm run dev:web" in terminal.`, false);
+      showFeedback(`Sync failed (${err.message}). Make sure Dashboard URL (${rawUrl}) is correct in Settings.`, false);
     } finally {
       btnSync.disabled = false;
       syncLabel.textContent = 'Sync Leads to Dashboard';
@@ -307,7 +334,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Save Settings
   btnSaveConfig.addEventListener('click', async () => {
-    const rawUrl = (apiUrlInput.value || 'http://localhost:3000').trim();
+    let rawUrl = (apiUrlInput.value || 'http://localhost:3000').trim().replace(/\/$/, '');
+    if (!/^https?:\/\//i.test(rawUrl)) {
+      rawUrl = `https://${rawUrl}`;
+      apiUrlInput.value = rawUrl;
+    }
     const apiKey = apiKeyInput.value.trim();
     const maxLeads = maxLeadsSelect.value;
 
@@ -317,8 +348,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       leadflow_max_leads: maxLeads
     });
 
-    linkDashboard.href = `${rawUrl.replace(/\/$/, '')}/dashboard`;
-    showFeedback('Settings saved successfully!', true);
+    currentTargetLabel.textContent = rawUrl.replace(/^https?:\/\//, '');
+    linkDashboard.href = `${rawUrl}/dashboard`;
+    configAccordion.open = false;
+    showFeedback(`Target URL set to: ${rawUrl}`, true);
   });
 
   // Direct CSV Export

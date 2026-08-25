@@ -27,6 +27,17 @@
       </div>
     </header>
 
+    <!-- Target Sync URL Display Banner -->
+    <div class="target-url-bar flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-900/80 border border-slate-800 text-[11px]">
+      <div class="flex items-center gap-1.5 truncate">
+        <span class="text-slate-400">Syncing to:</span>
+        <span id="current-target-label" class="font-mono text-blue-400 font-semibold truncate max-w-[170px]">http://localhost:3000</span>
+      </div>
+      <button id="btn-toggle-config-quick" class="text-sky-400 hover:text-sky-300 font-medium text-[11px] underline">
+        Change
+      </button>
+    </div>
+
     <!-- Map Search Notice if not on Google Maps -->
     <div id="map-notice" class="notice-card hidden">
       <div class="notice-icon">📍</div>
@@ -103,23 +114,24 @@
             <line x1="12" y1="8" x2="12" y2="12"></line>
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
           </svg>
-          <p class="text-xs text-slate-400">No leads scraped yet.</p>
+          <p class="text-xs text-slate-400">Search Google Maps and click Start Scraping.</p>
         </div>
       </div>
     </div>
 
     <!-- API Config Accordion -->
-    <details class="config-accordion">
+    <details id="config-accordion" class="config-accordion">
       <summary class="config-summary">
-        <span>⚙️ Dashboard API Settings</span>
+        <span>⚙️ Target Dashboard URL & Settings</span>
         <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="6 9 12 15 18 9"></polyline>
         </svg>
       </summary>
       <div class="config-body">
         <div class="form-group">
-          <label for="api-url" class="form-label">Dashboard Web URL</label>
-          <input type="text" id="api-url" class="text-input" value="http://localhost:3000" placeholder="http://localhost:3000">
+          <label for="api-url" class="form-label">Dashboard Web URL (Vercel or Localhost)</label>
+          <input type="text" id="api-url" class="text-input" value="http://localhost:3000" placeholder="https://your-app.vercel.app or http://localhost:3000">
+          <span class="text-[10px] text-slate-400 mt-1">Example: <code class="text-sky-300">https://fetchpro.vercel.app</code></span>
         </div>
         <div class="form-group">
           <label for="api-key" class="form-label">API Key / Auth Token (Optional)</label>
@@ -132,7 +144,7 @@
     <!-- Footer Links -->
     <footer class="footer">
       <a id="link-dashboard" href="http://localhost:3000/dashboard" target="_blank" class="footer-link">
-        Open Web Dashboard →
+        Open Live Dashboard →
       </a>
     </footer>
   </div>

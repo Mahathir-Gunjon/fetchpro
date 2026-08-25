@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Lead, DashboardStats, ExtractedLeadInput } from '@/lib/types';
 import { Navbar } from '@/components/Navbar';
 import { StatsOverview } from '@/components/StatsOverview';
@@ -48,28 +48,111 @@ export default function DashboardPage() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  // Helper to merge and deduplicate leads
+  const mergeLeads = (existing: Lead[], incoming: Lead[]): Lead[] => {
+    const map = new Map<string, Lead>();
+    // First existing
+    existing.forEach((l) => {
+      const key = l.id || l.maps_url || l.business_name.toLowerCase();
+      map.set(key, l);
+    });
+    // Incoming overrides/adds
+    incoming.forEach((l) => {
+      const key = l.id || l.maps_url || l.business_name.toLowerCase();
+      map.set(key, l);
+    });
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  };
+
+  // Recalculate stats helper
+  const calculateStats = (leadList: Lead[]): DashboardStats => {
+    const totalLeads = leadList.length;
+    const auditedLeads = leadList.filter((l) => l.status === 'audited' || l.status === 'emailed').length;
+    const emailsSent = leadList.filter((l) => l.status === 'emailed').length;
+    const leadsWithWebsites = leadList.filter((l) => !!l.website_url).length;
+    const leadsWithPhones = leadList.filter((l) => !!l.phone).length;
+
+    const scored = leadList.filter((l) => l.audit_data?.healthScore !== undefined);
+    const averageHealthScore = scored.length > 0
+      ? Math.round(scored.reduce((acc, l) => acc + (l.audit_data?.healthScore || 0), 0) / scored.length)
+      : 0;
+
+    return {
+      totalLeads,
+      auditedLeads,
+      averageHealthScore,
+      emailsSent,
+      leadsWithWebsites,
+      leadsWithPhones,
+    };
+  };
+
+  // Save leads to local storage & state
+  const persistLeads = (newLeads: Lead[]) => {
+    setLeads(newLeads);
+    setStats(calculateStats(newLeads));
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('leadflow_persisted_leads', JSON.stringify(newLeads));
+      } catch (e) {}
+    }
+  };
+
   // Fetch leads and stats from API
   const fetchDashboardData = useCallback(async () => {
     try {
-      const res = await fetch('/api/leads');
+      const res = await fetch('/api/leads', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        if (data.success && data.leads) {
-          setLeads(data.leads);
-          if (data.stats) {
-            setStats(data.stats);
+        if (data.success && Array.isArray(data.leads)) {
+          // Merge with localStorage
+          let savedLocal: Lead[] = [];
+          if (typeof window !== 'undefined') {
+            try {
+              const raw = localStorage.getItem('leadflow_persisted_leads');
+              if (raw) savedLocal = JSON.parse(raw);
+            } catch (e) {}
           }
+
+          const combined = mergeLeads(savedLocal, data.leads);
+          setLeads(combined);
+          setStats(calculateStats(combined));
         }
       }
     } catch (err) {
-      console.warn('Using client memory state:', err);
+      console.warn('API fetch warning, using local state:', err);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
+  // On initial mount
   useEffect(() => {
+    // 1. Load from localStorage immediately for zero latency
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('leadflow_persisted_leads');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setLeads(parsed);
+            setStats(calculateStats(parsed));
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 2. Fetch from API
     fetchDashboardData();
+
+    // 3. Setup real-time polling every 4 seconds so synced leads from extension appear automatically
+    const interval = setInterval(() => {
+      fetchDashboardData();
+    }, 4000);
+
+    return () => clearInterval(interval);
   }, [fetchDashboardData]);
 
   // Run Website Audit
@@ -90,7 +173,9 @@ export default function DashboardPage() {
 
       const data = await res.json();
       if (data.success && data.lead) {
-        setLeads((prev) => prev.map((l) => (l.id === leadId ? data.lead : l)));
+        const updated = leads.map((l) => (l.id === leadId ? data.lead : l));
+        persistLeads(updated);
+
         if (selectedAuditLead?.id === leadId) {
           setSelectedAuditLead(data.lead);
         }
@@ -99,7 +184,6 @@ export default function DashboardPage() {
           'Audit Completed',
           `Score: ${data.auditData.healthScore}/100 for ${targetLead.business_name}`
         );
-        fetchDashboardData();
       } else {
         throw new Error(data.error || 'Audit failed');
       }
@@ -121,13 +205,12 @@ export default function DashboardPage() {
 
       const data = await res.json();
       if (data.success && data.pitch) {
-        setLeads((prev) =>
-          prev.map((l) =>
-            l.id === leadId
-              ? { ...l, ai_pitch: data.pitch, ai_subject: data.subject }
-              : l
-          )
+        const updated = leads.map((l) =>
+          l.id === leadId
+            ? { ...l, ai_pitch: data.pitch, ai_subject: data.subject }
+            : l
         );
+        persistLeads(updated);
         return data.pitch;
       }
     } catch (err) {
@@ -152,26 +235,25 @@ export default function DashboardPage() {
 
       const data = await res.json();
       if (data.success) {
-        setLeads((prev) =>
-          prev.map((l) =>
-            l.id === leadId
-              ? {
-                  ...l,
-                  status: 'emailed',
-                  email: to,
-                  ai_subject: subject,
-                  ai_pitch: pitchBody,
-                  emailed_at: new Date().toISOString(),
-                }
-              : l
-          )
+        const updated = leads.map((l) =>
+          l.id === leadId
+            ? {
+                ...l,
+                status: 'emailed' as const,
+                email: to,
+                ai_subject: subject,
+                ai_pitch: pitchBody,
+                emailed_at: new Date().toISOString(),
+              }
+            : l
         );
+        persistLeads(updated);
+
         addToast(
           'success',
           'Outreach Dispatched',
           data.message || `Email delivered to ${to} via Resend!`
         );
-        fetchDashboardData();
         return true;
       } else {
         throw new Error(data.error || 'Failed to dispatch email');
@@ -192,16 +274,26 @@ export default function DashboardPage() {
       });
 
       const data = await res.json();
-      if (data.success && data.lead) {
-        setLeads((prev) => [data.lead, ...prev]);
-        addToast('success', 'Lead Added', `Added ${leadInput.business_name} to pipeline.`);
+      const newLead = data.lead || {
+        id: `lead_${Date.now()}`,
+        business_name: leadInput.business_name,
+        phone: leadInput.phone || null,
+        rating: leadInput.rating || 0,
+        reviews_count: leadInput.reviews_count || 0,
+        maps_url: leadInput.maps_url || null,
+        website_url: leadInput.website_url || null,
+        email: leadInput.email || null,
+        status: 'pending' as const,
+        created_at: new Date().toISOString(),
+      };
 
-        // Automatically trigger audit if website is provided
-        if (leadInput.website_url) {
-          handleRunAudit(data.lead.id);
-        } else {
-          fetchDashboardData();
-        }
+      const updated = [newLead, ...leads];
+      persistLeads(updated);
+      addToast('success', 'Lead Added', `Added ${leadInput.business_name} to pipeline.`);
+
+      // Automatically trigger audit if website is provided
+      if (leadInput.website_url) {
+        handleRunAudit(newLead.id);
       }
     } catch (err: any) {
       addToast('error', 'Error adding lead', err.message);
@@ -213,12 +305,10 @@ export default function DashboardPage() {
     if (!confirm('Are you sure you want to delete this lead?')) return;
 
     try {
-      const res = await fetch(`/api/leads?id=${leadId}`, { method: 'DELETE' });
-      if (res.ok) {
-        setLeads((prev) => prev.filter((l) => l.id !== leadId));
-        addToast('info', 'Lead Deleted', 'Removed lead from pipeline.');
-        fetchDashboardData();
-      }
+      await fetch(`/api/leads?id=${leadId}`, { method: 'DELETE' });
+      const updated = leads.filter((l) => l.id !== leadId);
+      persistLeads(updated);
+      addToast('info', 'Lead Deleted', 'Removed lead from pipeline.');
     } catch (err) {
       console.error('Delete lead error:', err);
     }
@@ -230,11 +320,9 @@ export default function DashboardPage() {
     try {
       const res = await fetch('/api/leads/demo-seed', { method: 'POST' });
       const data = await res.json();
-      if (data.success) {
-        setLeads(data.leads);
-        if (data.stats) setStats(data.stats);
-        addToast('success', 'Demo Leads Reloaded', 'Loaded 6 sample leads with rich audit metrics.');
-      }
+      const freshLeads = data.leads || INITIAL_MOCK_LEADS;
+      persistLeads(freshLeads);
+      addToast('success', 'Demo Leads Reloaded', 'Loaded 6 sample leads with rich audit metrics.');
     } catch (err) {
       console.error('Demo seed error:', err);
     } finally {

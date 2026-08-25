@@ -1,21 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbGetLeads, dbCreateLead, dbDeleteLead, dbGetStats } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+function corsResponse(body: any, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    },
+  });
+}
+
+export async function OPTIONS() {
+  return corsResponse({ ok: true });
+}
+
 // GET /api/leads - Retrieve all leads + dashboard statistics
 export async function GET(req: NextRequest) {
   try {
     const leads = await dbGetLeads();
     const stats = await dbGetStats();
 
-    return NextResponse.json({
+    return corsResponse({
       success: true,
       leads,
       stats,
     });
   } catch (error: any) {
-    return NextResponse.json(
+    return corsResponse(
       { success: false, error: error.message || 'Failed to fetch leads' },
-      { status: 500 }
+      500
     );
   }
 }
@@ -25,18 +44,18 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     if (!body.business_name) {
-      return NextResponse.json(
+      return corsResponse(
         { success: false, error: 'Business name is required' },
-        { status: 400 }
+        400
       );
     }
 
     const lead = await dbCreateLead(body);
-    return NextResponse.json({ success: true, lead }, { status: 201 });
+    return corsResponse({ success: true, lead }, 201);
   } catch (error: any) {
-    return NextResponse.json(
+    return corsResponse(
       { success: false, error: error.message || 'Failed to create lead' },
-      { status: 500 }
+      500
     );
   }
 }
@@ -48,15 +67,15 @@ export async function DELETE(req: NextRequest) {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ success: false, error: 'Lead ID is required' }, { status: 400 });
+      return corsResponse({ success: false, error: 'Lead ID is required' }, 400);
     }
 
     const deleted = await dbDeleteLead(id);
-    return NextResponse.json({ success: true, deleted });
+    return corsResponse({ success: true, deleted });
   } catch (error: any) {
-    return NextResponse.json(
+    return corsResponse(
       { success: false, error: error.message || 'Failed to delete lead' },
-      { status: 500 }
+      500
     );
   }
 }

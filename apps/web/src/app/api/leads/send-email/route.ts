@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbGetLeadById, dbUpdateLead } from '@/lib/supabase';
 import { sendOutreachEmail } from '@/lib/resend';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+function corsResponse(body: any, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+    },
+  });
+}
+
+export async function OPTIONS() {
+  return corsResponse({ ok: true });
+}
+
 // POST /api/leads/send-email - Send cold outreach email via Resend
 export async function POST(req: NextRequest) {
   try {
@@ -9,16 +28,16 @@ export async function POST(req: NextRequest) {
     const { leadId, to, subject, pitchBody } = body;
 
     if (!to || !to.includes('@')) {
-      return NextResponse.json(
+      return corsResponse(
         { success: false, error: 'A valid recipient email address is required' },
-        { status: 400 }
+        400
       );
     }
 
     if (!subject || !pitchBody) {
-      return NextResponse.json(
+      return corsResponse(
         { success: false, error: 'Email subject and body are required' },
-        { status: 400 }
+        400
       );
     }
 
@@ -41,9 +60,9 @@ export async function POST(req: NextRequest) {
     });
 
     if (!result.success) {
-      return NextResponse.json(
+      return corsResponse(
         { success: false, error: result.error || 'Failed to send email' },
-        { status: 500 }
+        500
       );
     }
 
@@ -59,7 +78,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({
+    return corsResponse({
       success: true,
       messageId: result.messageId,
       simulated: result.simulated,
@@ -70,9 +89,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('[Send Email API Error]', error);
-    return NextResponse.json(
+    return corsResponse(
       { success: false, error: error.message || 'Failed to send outreach email' },
-      { status: 500 }
+      500
     );
   }
 }

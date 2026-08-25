@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbGetLeads } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // GET /api/leads/export - Export leads to CSV
 export async function GET(req: NextRequest) {
   try {
@@ -53,6 +56,8 @@ export async function GET(req: NextRequest) {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="leadflow_leads_${new Date().toISOString().slice(0, 10)}.csv"`,
+        'Cache-Control': 'no-store, no-cache',
+        'Access-Control-Allow-Origin': '*',
       },
     });
   } catch (error: any) {
