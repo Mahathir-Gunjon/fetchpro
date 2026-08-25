@@ -1,12 +1,10 @@
 import { GoogleGenAI } from '@google/genai';
 import { AuditData, Lead, PitchGenerationResult } from './types';
+import { calculateOpportunityScore } from './scoring';
 
 /**
- * Generate a high-converting 3-4 sentence cold outreach email
- * using Google Gemini AI, customized depending on:
- * 1. Has website with audit flaws (SSL, Mobile, Backdated Copyright, Speed)
- * 2. Has Facebook/Instagram/TikTok only (no official booking website)
- * 3. Has no website at all (Brand new website pitch)
+ * Upgraded High-Converting Two-Step Gemini Pitch Generator
+ * ONLY generates pitches for high-opportunity/hot leads to save API quota.
  */
 export async function generateColdPitch(
   lead: Partial<Lead>,
@@ -20,29 +18,46 @@ export async function generateColdPitch(
   const hasSocialsOnly = !websiteUrl && Boolean(socials && (socials.facebook || socials.instagram || socials.tiktok));
   const hasNoWebsite = !websiteUrl && !hasSocialsOnly;
 
-  // Extract key hooks from audit
+  // Zero-Waste Check: If lead is classified as trash, return minimal placeholder
+  const oppResult = calculateOpportunityScore(lead, audit);
+  if (lead.status === 'trash' || (oppResult.score < 20 && oppResult.recommendedStatus === 'trash')) {
+    return {
+      subject: `Notes for ${businessName}`,
+      pitch: `Site is in optimal condition (${audit?.healthScore || 90}/100). No immediate outreach required.`,
+      keyHooksUsed: ['Zero critical flaws'],
+    };
+  }
+
+  // Extract top 1-2 exact flaws found
   const hooks: string[] = [];
+
   if (hasSocialsOnly) {
-    hooks.push('Business relies on Facebook/Instagram/TikTok on Google without a dedicated booking website.');
+    hooks.push('Business relies only on social media pages without a dedicated high-converting booking website');
   } else if (hasNoWebsite) {
-    hooks.push('Business has no active website or online booking page listed on Google Maps.');
+    hooks.push('Business has no website or online booking presence listed on Google Maps');
   }
 
   if (audit) {
-    if (!audit.ssl.hasSsl || !audit.ssl.valid) {
-      hooks.push('Website shows "Not Secure" warning in browsers (missing SSL certificate).');
+    if (audit.pageSpeed && audit.pageSpeed.score < 60) {
+      hooks.push(`Mobile page speed is ${audit.pageSpeed.score}/100 (high visitor bounce on smartphones)`);
+    } else if (audit.responseTimeMs > 2500) {
+      hooks.push(`Server response latency is ${(audit.responseTimeMs / 1000).toFixed(1)}s`);
     }
-    if (!audit.mobileResponsive.isMobileFriendly) {
-      hooks.push('Site is not mobile-optimized, rendering zoomed out on smartphones.');
+
+    if (audit.localSeo && !audit.localSeo.hasLocalSchema) {
+      hooks.push('Missing LocalBusiness schema markup (reducing visibility in Google Maps local pack)');
     }
-    if (audit.copyright.isOutdated && audit.copyright.detectedYear) {
-      hooks.push(`Footer copyright hasn't been updated since ${audit.copyright.detectedYear}.`);
+
+    if (audit.ctaCheck && !audit.ctaCheck.hasClearCta) {
+      hooks.push('Missing direct Call-To-Action (Call/Quote button) above the fold');
     }
-    if (!audit.meta.description) {
-      hooks.push('Missing Google search meta description, resulting in generic search snippets.');
+
+    if (audit.copyright && audit.copyright.isOutdated && audit.copyright.detectedYear) {
+      hooks.push(`Footer copyright hasn't been updated since ${audit.copyright.detectedYear}`);
     }
-    if (audit.responseTimeMs > 2200) {
-      hooks.push(`Slow page load speed (${(audit.responseTimeMs / 1000).toFixed(1)}s latency).`);
+
+    if (audit.ssl && (!audit.ssl.hasSsl || !audit.ssl.valid)) {
+      hooks.push('Website shows "Not Secure" warning in browsers (missing SSL certificate)');
     }
   }
 
@@ -52,37 +67,30 @@ export async function generateColdPitch(
     try {
       const ai = new GoogleGenAI({ apiKey });
 
-      let angleDescription = '';
-      if (hasSocialsOnly) {
-        angleDescription = `
-- Scenario: The business has a Facebook/Instagram/TikTok presence, but NO dedicated fast-booking website.
-- Key Point: Social media pages make it harder for mobile visitors on Google Maps to book instant quotes. Pitch them a modern 1-page booking site.
-`;
-      } else if (hasNoWebsite) {
-        angleDescription = `
-- Scenario: No website found.
-- Key Point: Pitch a brand new high-converting mobile site to capture daily Google Maps search traffic.
-`;
+      let flawContext = '';
+      if (hasNoWebsite) {
+        flawContext = 'The business has no website listed on Google Maps, losing potential search customers.';
+      } else if (hasSocialsOnly) {
+        flawContext = 'The business only has social media pages on Google Maps, lacking an instant booking site.';
       } else {
-        angleDescription = `
-- Scenario: Website found with specific audit flaws:
-${hooks.map((h) => `  * ${h}`).join('\n')}
-`;
+        flawContext = `Exact flaws identified:\n${hooks.slice(0, 2).map((h) => `- ${h}`).join('\n')}`;
       }
 
       const prompt = `
-You are an elite B2B sales copywriter for digital growth and web development agencies.
-Write a personalized, ultra-natural 3-4 sentence cold outreach email to "${businessName}".
+You are an elite B2B cold email strategist for local web design & digital growth agencies.
+Write a curiosity-driven, ultra-concise 3-sentence plain text cold email to "${businessName}".
 
 Context:
-- Business: ${businessName} (Google Rating: ${rating} across ${reviewsCount})
-${angleDescription}
+- Target Business: ${businessName} (Google Rating: ${rating} with ${reviewsCount})
+- Opportunity Findings:
+${flawContext}
 
 Rules:
-1. Line 1: Genuine compliment on their local reputation / stellar Google Maps reviews.
-2. Line 2-3: Point out the exact finding (${hasNoWebsite ? 'they have no dedicated website on Google Maps' : 'the specific website flaws or mobile optimization opportunities'}).
-3. Line 4: Friendly, zero-pressure call to action (e.g. "I recorded a quick 45-second video walkthrough showing how to fix this—would you be open to seeing it?").
-4. Return ONLY valid JSON format:
+1. Sentence 1: Genuine, warm compliment on their local reputation / Google Maps reviews.
+2. Sentence 2: Highlight 1-2 exact findings naturally without sounding aggressive (e.g. "I noticed your mobile speed is loading at ${audit?.pageSpeed?.score || 35}/100 and missing Local Business markup, which causes nearby smartphone searchers to bounce before calling.").
+3. Sentence 3: Low-friction, no-pressure CTA (e.g. "Would it be okay if I sent over a short 2-minute video teardown showing how to fix this?").
+4. Keep it under 65 words. No fluff.
+5. Return ONLY valid JSON:
 {"subject": "...", "pitch": "..."}
 `;
 
@@ -99,16 +107,16 @@ Rules:
           return {
             subject: parsed.subject,
             pitch: parsed.pitch,
-            keyHooksUsed: hooks,
+            keyHooksUsed: hooks.slice(0, 2),
           };
         }
       }
     } catch (error: any) {
-      console.warn('[Gemini AI] Using smart heuristic pitch fallback:', error.message);
+      console.warn('[Gemini AI] Fallback to deterministic copywriting:', error.message);
     }
   }
 
-  return generateHeuristicPitch(businessName, rating, reviewsCount, hooks, websiteUrl, hasSocialsOnly, hasNoWebsite);
+  return generateHeuristicPitch(businessName, rating, reviewsCount, hooks, websiteUrl, hasSocialsOnly, hasNoWebsite, audit);
 }
 
 function generateHeuristicPitch(
@@ -118,7 +126,8 @@ function generateHeuristicPitch(
   hooks: string[],
   websiteUrl: string,
   hasSocialsOnly: boolean,
-  hasNoWebsite: boolean
+  hasNoWebsite: boolean,
+  audit?: AuditData | null
 ): PitchGenerationResult {
   const cleanDomain = websiteUrl ? websiteUrl.replace(/^https?:\/\/(www\.)?/, '').split('/')[0] : '';
 
@@ -128,35 +137,40 @@ function generateHeuristicPitch(
       pitch:
         `Hi ${businessName} Team,\n\n` +
         `Huge congrats on your ${rating || '5★'} rating${reviewsCount ? ` with ${reviewsCount}` : ''} on Google Maps!\n\n` +
-        `I noticed your business uses social media pages rather than a dedicated online booking website, which makes it harder for mobile searchers on Google Maps to request instant estimates.\n\n` +
-        `I created a quick 60-second mockup of a streamlined booking site designed specifically for ${businessName}. Open to seeing it?`,
+        `I noticed your business uses social media on Google Maps rather than a dedicated booking website, which makes it harder for mobile searchers to request instant quotes.\n\n` +
+        `Would it be okay if I sent over a short 2-minute video teardown showing how a streamlined booking site can double your quote requests?`,
       keyHooksUsed: ['Social media only / No dedicated booking site'],
     };
   }
 
   if (hasNoWebsite) {
     return {
-      subject: `Website proposal for ${businessName}`,
+      subject: `Website idea for ${businessName}`,
       pitch:
         `Hi ${businessName} Team,\n\n` +
         `Huge congrats on your stellar ${rating || '5★'} reputation${reviewsCount ? ` with ${reviewsCount}` : ''} on Google Maps—local clients clearly love your service!\n\n` +
-        `I noticed you don't have a website linked on your Google profile yet, which means nearby customers searching online might be calling competitors who offer instant online bookings.\n\n` +
-        `I created a quick 60-second video mockup of a high-converting website tailored for ${businessName}. Would you be open to me sending that over?`,
+        `I noticed you don't have an active website listed on your Google profile yet, which means nearby customers searching on smartphones might be calling competitors instead.\n\n` +
+        `Would it be okay if I sent over a short 2-minute video teardown with a modern website mockup designed specifically for ${businessName}?`,
       keyHooksUsed: ['No website listed on Google Maps'],
     };
   }
 
-  const flawSentence = hooks.length > 0
-    ? `While reviewing top-rated local services, I noticed your site (${cleanDomain}) ${hooks[0].toLowerCase()} which may be costing you phone inquiries from mobile visitors.`
-    : `While checking out your online presence on ${cleanDomain}, I noticed huge potential to increase your appointment conversions with a modern mobile redesign.`;
+  let flawSentence = '';
+  if (audit?.pageSpeed && audit.pageSpeed.score < 60) {
+    flawSentence = `While looking at top local services, I noticed your mobile speed is ${audit.pageSpeed.score}/100 and missing Local Business schema, causing mobile searchers to bounce before calling.`;
+  } else if (hooks.length > 0) {
+    flawSentence = `While reviewing your online presence on ${cleanDomain}, I noticed your site ${hooks[0].toLowerCase()} which is likely reducing inbound phone inquiries.`;
+  } else {
+    flawSentence = `While checking out your website (${cleanDomain}), I spotted 2 quick mobile optimization tweaks that could significantly increase your monthly estimate requests.`;
+  }
 
   return {
     subject: `Quick suggestion for ${cleanDomain || businessName}`,
     pitch:
       `Hi ${businessName} Team,\n\n` +
-      `Congrats on your fantastic ${rating ? `${rating} rating` : 'reviews'}${reviewsCount ? ` across ${reviewsCount}` : ''} on Google Maps!\n\n` +
+      `Congrats on your fantastic ${rating ? `${rating} reputation` : 'reviews'}${reviewsCount ? ` across ${reviewsCount}` : ''} on Google Maps!\n\n` +
       `${flawSentence}\n\n` +
-      `I recorded a quick 45-second video walkthrough showing 3 quick fixes to increase your monthly bookings. Would you be open to seeing it?`,
-    keyHooksUsed: hooks,
+      `Would it be okay if I sent over a short 2-minute video teardown showing exactly how to fix this?`,
+    keyHooksUsed: hooks.slice(0, 2),
   };
 }

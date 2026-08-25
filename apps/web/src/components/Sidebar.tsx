@@ -7,7 +7,7 @@ import {
   Globe,
   Flame,
   Send,
-  AlertTriangle,
+  Trash,
   Plus,
   RotateCw,
   Trash2,
@@ -15,11 +15,12 @@ import {
   Chrome,
   CheckCircle2,
   LogOut,
+  Sparkles,
 } from 'lucide-react';
 import { DashboardStats } from '@/lib/types';
 import { AUTH_STORAGE_KEY } from '@/lib/auth';
 
-export type DashboardViewTab = 'all' | 'audited' | 'nowebsite' | 'emailed' | 'critical';
+export type DashboardViewTab = 'hot' | 'all' | 'audited' | 'nowebsite' | 'emailed' | 'trash';
 
 interface SidebarProps {
   currentTab: DashboardViewTab;
@@ -61,24 +62,31 @@ export function Sidebar({
     badgeColor?: string;
   }[] = [
     {
+      id: 'hot',
+      label: '🔥 Hot Leads (Top 30%)',
+      icon: <Sparkles className="w-4 h-4 text-amber-400" />,
+      count: stats.hotLeadsCount || 0,
+      badgeColor: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+    },
+    {
       id: 'all',
-      label: 'All Leads',
+      label: 'All Raw Leads',
       icon: <Users className="w-4 h-4" />,
       count: stats.totalLeads,
     },
     {
       id: 'audited',
-      label: 'Audited Websites',
+      label: 'Audited Sites',
       icon: <Globe className="w-4 h-4" />,
       count: stats.auditedLeads,
       badgeColor: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
     },
     {
       id: 'nowebsite',
-      label: 'No Website (Hot)',
-      icon: <Flame className="w-4 h-4 text-amber-400" />,
+      label: 'No Website (Instant Hot)',
+      icon: <Flame className="w-4 h-4 text-rose-400" />,
       count: stats.leadsWithoutWebsites,
-      badgeColor: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+      badgeColor: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
     },
     {
       id: 'emailed',
@@ -88,11 +96,11 @@ export function Sidebar({
       badgeColor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
     },
     {
-      id: 'critical',
-      label: 'Score < 50',
-      icon: <AlertTriangle className="w-4 h-4 text-rose-400" />,
-      count: stats.totalLeads > 0 ? stats.totalLeads - stats.auditedLeads : 0,
-      badgeColor: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
+      id: 'trash',
+      label: 'Trash / 100% OK',
+      icon: <Trash className="w-4 h-4 text-slate-500" />,
+      count: stats.trashLeadsCount || 0,
+      badgeColor: 'text-slate-400 bg-slate-800/40 border-slate-700/40',
     },
   ];
 
@@ -120,7 +128,7 @@ export function Sidebar({
       {/* Main Navigation Views */}
       <div className="space-y-1">
         <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-          Pipeline Views
+          Funnel Pipeline
         </span>
         <div className="pt-1.5 space-y-1">
           {navItems.map((item) => {

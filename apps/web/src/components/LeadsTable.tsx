@@ -17,7 +17,9 @@ import {
   CheckSquare,
   Square,
   Globe,
-  Share2,
+  Zap,
+  Trash,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface LeadsTableProps {
@@ -50,7 +52,7 @@ export function LeadsTable({
   auditingId,
   auditingIds = new Set(),
   isBatchAuditing = false,
-  activeTab = 'all',
+  activeTab = 'hot',
   onTabChange,
 }: LeadsTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,10 +62,25 @@ export function LeadsTable({
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
       // 1. Tab filter
-      if (activeTab === 'audited' && lead.status !== 'audited' && lead.status !== 'emailed') return false;
-      if (activeTab === 'nowebsite' && !!lead.website_url) return false;
-      if (activeTab === 'emailed' && lead.status !== 'emailed') return false;
-      if (activeTab === 'critical' && (lead.audit_data?.healthScore === undefined || lead.audit_data.healthScore >= 50)) return false;
+      if (activeTab === 'hot') {
+        const isHot =
+          lead.status === 'hot_lead' ||
+          (typeof lead.opportunity_score === 'number' && lead.opportunity_score >= 45) ||
+          !lead.website_url;
+        if (!isHot) return false;
+      } else if (activeTab === 'audited') {
+        if (lead.status !== 'audited' && lead.status !== 'emailed' && lead.status !== 'hot_lead' && lead.status !== 'trash') return false;
+        if (!lead.audit_data) return false;
+      } else if (activeTab === 'nowebsite') {
+        if (!!lead.website_url) return false;
+      } else if (activeTab === 'emailed') {
+        if (lead.status !== 'emailed') return false;
+      } else if (activeTab === 'trash') {
+        const isTrash =
+          lead.status === 'trash' ||
+          (typeof lead.opportunity_score === 'number' && lead.opportunity_score <= 15 && lead.audit_data?.healthScore && lead.audit_data.healthScore >= 85);
+        if (!isTrash) return false;
+      }
 
       // 2. Search query filter
       if (!searchQuery.trim()) return true;
@@ -129,12 +146,21 @@ export function LeadsTable({
     }
   };
 
-  const tabLabels: { id: DashboardViewTab; label: string; count: number }[] = [
-    { id: 'all', label: 'All Leads', count: leads.length },
-    { id: 'audited', label: 'Audited Sites', count: leads.filter((l) => l.status === 'audited' || l.status === 'emailed').length },
-    { id: 'nowebsite', label: 'No Website (Hot)', count: leads.filter((l) => !l.website_url).length },
+  const hotCount = leads.filter(
+    (l) => l.status === 'hot_lead' || (l.opportunity_score && l.opportunity_score >= 45) || !l.website_url
+  ).length;
+
+  const trashCount = leads.filter(
+    (l) => l.status === 'trash' || (l.opportunity_score && l.opportunity_score <= 15 && l.audit_data?.healthScore && l.audit_data.healthScore >= 85)
+  ).length;
+
+  const tabLabels: { id: DashboardViewTab; label: string; count: number; hot?: boolean }[] = [
+    { id: 'hot', label: '🔥 Hot Leads (Top 30%)', count: hotCount, hot: true },
+    { id: 'all', label: 'All Raw Leads', count: leads.length },
+    { id: 'audited', label: 'Audited Sites', count: leads.filter((l) => !!l.audit_data).length },
+    { id: 'nowebsite', label: 'No Website', count: leads.filter((l) => !l.website_url).length },
     { id: 'emailed', label: 'Outreach Sent', count: leads.filter((l) => l.status === 'emailed').length },
-    { id: 'critical', label: 'Score < 50', count: leads.filter((l) => l.audit_data?.healthScore !== undefined && l.audit_data.healthScore < 50).length },
+    { id: 'trash', label: 'Trash / 100% OK', count: trashCount },
   ];
 
   return (
@@ -149,14 +175,20 @@ export function LeadsTable({
               onClick={() => onTabChange && onTabChange(tab.id)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
                 activeTab === tab.id
-                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/20'
+                  ? tab.hot
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-sm shadow-amber-500/20'
+                    : 'bg-blue-600 text-white shadow-sm shadow-blue-600/20'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
               }`}
             >
               <span>{tab.label}</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'
-              }`}>
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                  activeTab === tab.id
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-800 text-slate-400'
+                }`}
+              >
                 {tab.count}
               </span>
             </button>
@@ -223,10 +255,10 @@ export function LeadsTable({
                     )}
                   </button>
                 </th>
-                <th className="py-3.5 px-4">Business & Google Rating</th>
+                <th className="py-3.5 px-4">Opportunity & Business</th>
                 <th className="py-3.5 px-4">Contact Info</th>
                 <th className="py-3.5 px-4">Social Profiles</th>
-                <th className="py-3.5 px-4">Website & Audit Health</th>
+                <th className="py-3.5 px-4">Website & PageSpeed</th>
                 <th className="py-3.5 px-4">Status & Outreach</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
@@ -243,7 +275,7 @@ export function LeadsTable({
                       <p className="text-xs text-slate-400">
                         {searchQuery
                           ? `No leads matched "${searchQuery}". Try another search.`
-                          : 'Scrape leads from Google Maps using FetchPro Chrome extension or click Add Lead.'}
+                          : 'Run an audit to filter high-opportunity hot leads or scrape from Google Maps.'}
                       </p>
                       <button
                         onClick={onAddLead}
@@ -260,12 +292,20 @@ export function LeadsTable({
                   const isAuditing = auditingId === lead.id || auditingIds.has(lead.id);
                   const hasNoWebsite = !lead.website_url;
                   const socials = lead.socials || lead.audit_data?.socials;
+                  const oppScore = typeof lead.opportunity_score === 'number' ? lead.opportunity_score : (hasNoWebsite ? 95 : 0);
+                  const isHot = lead.status === 'hot_lead' || oppScore >= 45;
+                  const isTrash = lead.status === 'trash' || (oppScore <= 15 && lead.audit_data && lead.audit_data.healthScore >= 85);
+                  const pageSpeedScore = lead.audit_data?.pageSpeed?.score;
 
                   return (
                     <tr
                       key={lead.id}
                       className={`group transition-colors ${
-                        isSelected ? 'bg-blue-950/30' : 'hover:bg-slate-800/40'
+                        isSelected
+                          ? 'bg-blue-950/30'
+                          : isHot
+                          ? 'bg-amber-950/10 hover:bg-amber-950/20'
+                          : 'hover:bg-slate-800/40'
                       }`}
                     >
                       {/* Checkbox */}
@@ -282,11 +322,25 @@ export function LeadsTable({
                         </button>
                       </td>
 
-                      {/* Business Name & Maps */}
+                      {/* Business & Opportunity Score */}
                       <td className="py-3.5 px-4">
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-white text-sm tracking-tight group-hover:text-blue-400 transition-colors">
+                            {isHot ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/30">
+                                🔥 Opp: {oppScore}
+                              </span>
+                            ) : isTrash ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-slate-400 bg-slate-800 border border-slate-700">
+                                🗑️ 100% OK
+                              </span>
+                            ) : oppScore > 0 ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-blue-300 bg-blue-500/10 border border-blue-500/20">
+                                ⚡ Opp: {oppScore}
+                              </span>
+                            ) : null}
+
+                            <span className="font-bold text-white text-sm tracking-tight group-hover:text-blue-400 transition-colors truncate max-w-[200px]">
                               {lead.business_name}
                             </span>
                             {lead.maps_url && (
@@ -297,10 +351,11 @@ export function LeadsTable({
                                 className="text-slate-400 hover:text-slate-300"
                                 title="Open in Google Maps"
                               >
-                                <ExternalLink className="w-3.5 h-3.5" />
+                                <ExternalLink className="w-3 h-3" />
                               </a>
                             )}
                           </div>
+
                           <div className="flex items-center gap-2 text-slate-400 text-[11px]">
                             {lead.rating ? (
                               <span className="font-semibold text-amber-400 flex items-center gap-0.5">
@@ -326,7 +381,10 @@ export function LeadsTable({
                             <span className="text-slate-400 italic">No phone</span>
                           )}
                           {lead.email ? (
-                            <div className="flex items-center gap-1.5 text-sky-400 font-mono truncate max-w-[160px]" title={lead.email}>
+                            <div
+                              className="flex items-center gap-1.5 text-sky-400 font-mono truncate max-w-[160px]"
+                              title={lead.email}
+                            >
                               <Mail className="w-3 h-3 text-sky-400 shrink-0" />
                               <span>{lead.email}</span>
                             </div>
@@ -334,9 +392,15 @@ export function LeadsTable({
                         </div>
                       </td>
 
-                      {/* Social Media Profiles (FB, IG, TikTok, LinkedIn, 𝕏, YouTube) */}
+                      {/* Social Media Profiles */}
                       <td className="py-3.5 px-4">
-                        {socials && (socials.facebook || socials.instagram || socials.tiktok || socials.linkedin || socials.twitter || socials.youtube) ? (
+                        {socials &&
+                        (socials.facebook ||
+                          socials.instagram ||
+                          socials.tiktok ||
+                          socials.linkedin ||
+                          socials.twitter ||
+                          socials.youtube) ? (
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {socials.facebook && (
                               <a
@@ -399,12 +463,12 @@ export function LeadsTable({
                         )}
                       </td>
 
-                      {/* Website & Audit Score */}
+                      {/* Website & PageSpeed */}
                       <td className="py-3.5 px-4">
                         {hasNoWebsite ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20">
                             <Flame className="w-3 h-3 text-amber-400" />
-                            <span>Needs Website</span>
+                            <span>Needs New Website</span>
                           </span>
                         ) : (
                           <div className="flex items-center gap-3">
@@ -412,7 +476,7 @@ export function LeadsTable({
                               score={lead.audit_data?.healthScore}
                               onClick={() => onOpenAudit(lead)}
                             />
-                            <div className="flex flex-col gap-0.5 truncate max-w-[170px]">
+                            <div className="flex flex-col gap-1 truncate max-w-[180px]">
                               <a
                                 href={lead.website_url!}
                                 target="_blank"
@@ -421,15 +485,33 @@ export function LeadsTable({
                               >
                                 {lead.website_url!.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
                               </a>
-                              {lead.audit_data?.ssl ? (
-                                <span className={`text-[10px] font-semibold ${lead.audit_data.ssl.valid ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                  {lead.audit_data.ssl.valid ? '✓ SSL Active' : '✗ No SSL'}
-                                </span>
-                              ) : isAuditing ? (
-                                <span className="text-[10px] text-indigo-400 font-semibold animate-pulse">
-                                  Auditing...
-                                </span>
-                              ) : null}
+                              <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                                {typeof pageSpeedScore === 'number' ? (
+                                  <span
+                                    className={`px-1.5 py-0.2 rounded font-bold ${
+                                      pageSpeedScore < 50
+                                        ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                                        : pageSpeedScore <= 70
+                                        ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                                        : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                    }`}
+                                  >
+                                    Speed {pageSpeedScore}
+                                  </span>
+                                ) : isAuditing ? (
+                                  <span className="text-indigo-400 font-semibold animate-pulse">
+                                    Auditing...
+                                  </span>
+                                ) : null}
+
+                                {lead.audit_data?.localSeo ? (
+                                  lead.audit_data.localSeo.hasLocalSchema ? (
+                                    <span className="text-emerald-400 font-medium">✓ Schema</span>
+                                  ) : (
+                                    <span className="text-amber-400 font-medium">⚠️ No Schema</span>
+                                  )
+                                ) : null}
+                              </div>
                             </div>
                           </div>
                         )}
@@ -449,6 +531,15 @@ export function LeadsTable({
                               </span>
                             )}
                           </div>
+                        ) : isHot ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30">
+                            <Sparkles className="w-3 h-3 text-amber-400" />
+                            <span>Hot Opportunity</span>
+                          </span>
+                        ) : isTrash ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold text-slate-400 bg-slate-800 border border-slate-700">
+                            <span>100% Perfect</span>
+                          </span>
                         ) : lead.status === 'audited' ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20">
                             <span>Audited</span>
@@ -463,15 +554,19 @@ export function LeadsTable({
                       {/* Action Buttons */}
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* Re-Audit Button (if website exists) */}
+                          {/* Re-Audit Button */}
                           {lead.website_url ? (
                             <button
                               onClick={() => onRunAudit(lead.id)}
                               disabled={isAuditing}
                               className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors disabled:opacity-40"
-                              title="Run Instant Audit"
+                              title="Run PageSpeed & SEO Audit"
                             >
-                              <RotateCw className={`w-3.5 h-3.5 ${isAuditing ? 'animate-spin text-indigo-400' : ''}`} />
+                              <RotateCw
+                                className={`w-3.5 h-3.5 ${
+                                  isAuditing ? 'animate-spin text-indigo-400' : ''
+                                }`}
+                              />
                             </button>
                           ) : null}
 
@@ -479,7 +574,7 @@ export function LeadsTable({
                           <button
                             onClick={() => onOpenPitchEditor(lead)}
                             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 transition-colors"
-                            title="Generate AI Cold Pitch"
+                            title="Review or Send AI Cold Pitch"
                           >
                             <Sparkles className="w-3 h-3" />
                             <span>{lead.status === 'emailed' ? 'Review Pitch' : 'Pitch'}</span>

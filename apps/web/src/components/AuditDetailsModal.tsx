@@ -20,6 +20,9 @@ import {
   ExternalLink,
   RotateCw,
   Share2,
+  Zap,
+  Tag,
+  MousePointerClick,
 } from 'lucide-react';
 
 interface AuditDetailsModalProps {
@@ -43,6 +46,7 @@ export function AuditDetailsModal({
 
   const audit = lead.audit_data;
   const socials = lead.socials || audit?.socials;
+  const oppScore = lead.opportunity_score ?? audit?.opportunityScore ?? 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
@@ -61,6 +65,11 @@ export function AuditDetailsModal({
                     ★ {lead.rating} ({lead.reviews_count})
                   </span>
                 )}
+                {oppScore >= 45 && (
+                  <span className="text-xs font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30">
+                    🔥 Hot Lead ({oppScore})
+                  </span>
+                )}
               </h2>
               <div className="flex items-center gap-3 mt-0.5">
                 <a
@@ -74,25 +83,66 @@ export function AuditDetailsModal({
                 </a>
 
                 {/* Social icons in header */}
-                {socials && (socials.facebook || socials.instagram || socials.tiktok || socials.linkedin || socials.twitter || socials.youtube) && (
-                  <div className="flex items-center gap-1.5 pl-2 border-l border-slate-800">
-                    {socials.facebook && (
-                      <a href={socials.facebook} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-blue-400 hover:text-blue-300">fb</a>
-                    )}
-                    {socials.instagram && (
-                      <a href={socials.instagram} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-pink-400 hover:text-pink-300">ig</a>
-                    )}
-                    {socials.tiktok && (
-                      <a href={socials.tiktok} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-teal-300 hover:text-teal-200">tt</a>
-                    )}
-                    {socials.linkedin && (
-                      <a href={socials.linkedin} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-sky-400 hover:text-sky-300">in</a>
-                    )}
-                    {socials.twitter && (
-                      <a href={socials.twitter} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-slate-300 hover:text-white">𝕏</a>
-                    )}
-                  </div>
-                )}
+                {socials &&
+                  (socials.facebook ||
+                    socials.instagram ||
+                    socials.tiktok ||
+                    socials.linkedin ||
+                    socials.twitter ||
+                    socials.youtube) && (
+                    <div className="flex items-center gap-1.5 pl-2 border-l border-slate-800">
+                      {socials.facebook && (
+                        <a
+                          href={socials.facebook}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[10px] font-bold text-blue-400 hover:text-blue-300"
+                        >
+                          fb
+                        </a>
+                      )}
+                      {socials.instagram && (
+                        <a
+                          href={socials.instagram}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[10px] font-bold text-pink-400 hover:text-pink-300"
+                        >
+                          ig
+                        </a>
+                      )}
+                      {socials.tiktok && (
+                        <a
+                          href={socials.tiktok}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[10px] font-bold text-teal-300 hover:text-teal-200"
+                        >
+                          tt
+                        </a>
+                      )}
+                      {socials.linkedin && (
+                        <a
+                          href={socials.linkedin}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[10px] font-bold text-sky-400 hover:text-sky-300"
+                        >
+                          in
+                        </a>
+                      )}
+                      {socials.twitter && (
+                        <a
+                          href={socials.twitter}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[10px] font-bold text-slate-300 hover:text-white"
+                        >
+                          𝕏
+                        </a>
+                      )}
+                    </div>
+                  )}
               </div>
             </div>
           </div>
@@ -112,7 +162,7 @@ export function AuditDetailsModal({
               <h3 className="text-lg font-semibold text-white">No Audit Data Yet</h3>
               <p className="text-sm text-slate-400 max-w-sm mx-auto mt-1 mb-6">
                 {lead.website_url
-                  ? 'Run an automated audit to analyze SSL certificates, mobile viewport tags, tech stack, copyright freshness, and email addresses.'
+                  ? 'Run an automated audit to analyze Google PageSpeed, LocalBusiness Schema, mobile UX, and copyright freshness.'
                   : 'This lead has no website URL. Pitch them a brand new mobile-friendly website to capture Google Maps traffic!'}
               </p>
               {lead.website_url ? (
@@ -122,7 +172,7 @@ export function AuditDetailsModal({
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 shadow-lg shadow-blue-600/25 transition-all"
                 >
                   <RotateCw className={`w-4 h-4 ${isAuditing ? 'animate-spin' : ''}`} />
-                  <span>{isAuditing ? 'Auditing Website...' : 'Run Automated Audit Now'}</span>
+                  <span>{isAuditing ? 'Auditing PageSpeed & SEO...' : 'Run Automated Audit Now'}</span>
                 </button>
               ) : (
                 <button
@@ -141,13 +191,45 @@ export function AuditDetailsModal({
             <>
               {/* Top Summary Banner */}
               <div className="flex flex-col sm:flex-row items-center justify-between p-4 rounded-xl bg-slate-950/80 border border-slate-800/80 gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="text-center sm:text-left">
+                <div className="flex items-center gap-6">
+                  <div>
                     <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                      Website Health Score
+                      Website Health
                     </span>
                     <HealthScoreBadge score={audit.healthScore} size="lg" />
                   </div>
+                  {audit.pageSpeed && (
+                    <div>
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                        Mobile PageSpeed
+                      </span>
+                      <div className="flex items-baseline gap-1.5">
+                        <span
+                          className={`text-2xl font-extrabold ${
+                            audit.pageSpeed.score < 50
+                              ? 'text-rose-400'
+                              : audit.pageSpeed.score <= 70
+                              ? 'text-amber-400'
+                              : 'text-emerald-400'
+                          }`}
+                        >
+                          {audit.pageSpeed.score}
+                        </span>
+                        <span className="text-xs text-slate-400">/ 100</span>
+                      </div>
+                    </div>
+                  )}
+                  {oppScore > 0 && (
+                    <div>
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                        Opportunity Score
+                      </span>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-2xl font-extrabold text-amber-400">{oppScore}</span>
+                        <span className="text-xs text-slate-400">/ 100</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
@@ -156,7 +238,9 @@ export function AuditDetailsModal({
                     disabled={isAuditing}
                     className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all"
                   >
-                    <RotateCw className={`w-3.5 h-3.5 ${isAuditing ? 'animate-spin text-blue-400' : ''}`} />
+                    <RotateCw
+                      className={`w-3.5 h-3.5 ${isAuditing ? 'animate-spin text-blue-400' : ''}`}
+                    />
                     <span>Re-Audit</span>
                   </button>
                   <button
@@ -174,43 +258,63 @@ export function AuditDetailsModal({
 
               {/* Core Audit Metrics Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                {/* SSL */}
+                {/* Mobile PageSpeed */}
                 <div className="p-3.5 rounded-xl bg-slate-950/50 border border-slate-800/80">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[11px] font-semibold text-slate-400 uppercase">SSL Protocol</span>
-                    {audit.ssl.valid ? (
-                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                    ) : (
-                      <ShieldAlert className="w-4 h-4 text-rose-400" />
-                    )}
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase">
+                      Mobile Speed
+                    </span>
+                    <Zap className="w-4 h-4 text-amber-400" />
                   </div>
                   <div className="text-sm font-bold text-white">
-                    {audit.ssl.valid ? 'Valid & Secure' : 'Insecure / Missing'}
+                    {audit.pageSpeed ? `${audit.pageSpeed.score}/100 Score` : `${audit.responseTimeMs} ms`}
                   </div>
                   <div className="text-[11px] text-slate-400 mt-0.5 truncate">
-                    {audit.ssl.protocol || (audit.ssl.hasSsl ? 'HTTPS' : 'HTTP')}
+                    {audit.pageSpeed?.lcp ? `LCP: ${audit.pageSpeed.lcp}` : 'Latency response'}
                   </div>
                 </div>
 
-                {/* Mobile */}
+                {/* Local Schema */}
                 <div className="p-3.5 rounded-xl bg-slate-950/50 border border-slate-800/80">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[11px] font-semibold text-slate-400 uppercase">Mobile Friendly</span>
-                    <Smartphone className="w-4 h-4 text-indigo-400" />
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase">
+                      Local Schema
+                    </span>
+                    <Tag className="w-4 h-4 text-indigo-400" />
                   </div>
                   <div className="text-sm font-bold text-white">
-                    {audit.mobileResponsive.isMobileFriendly ? 'Optimized' : 'Not Responsive'}
+                    {audit.localSeo?.hasLocalSchema ? 'Configured' : 'Missing Schema'}
                   </div>
                   <div className="text-[11px] text-slate-400 mt-0.5">
-                    {audit.mobileResponsive.hasViewport ? 'Viewport tag active' : 'Missing viewport'}
+                    {audit.localSeo?.hasLocalSchema
+                      ? audit.localSeo.schemaTypes.slice(0, 1).join('') || 'JSON-LD'
+                      : 'LocalBusiness missing'}
+                  </div>
+                </div>
+
+                {/* Clear CTA Signal */}
+                <div className="p-3.5 rounded-xl bg-slate-950/50 border border-slate-800/80">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase">
+                      Call To Action
+                    </span>
+                    <MousePointerClick className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div className="text-sm font-bold text-white">
+                    {audit.ctaCheck?.hasClearCta ? 'CTA Present' : 'No Clear CTA'}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5 truncate">
+                    {audit.ctaCheck?.ctaLabels?.slice(0, 1).join('') || (audit.ctaCheck?.hasClearCta ? 'Book / Quote' : 'Needs Call button')}
                   </div>
                 </div>
 
                 {/* Copyright Year */}
                 <div className="p-3.5 rounded-xl bg-slate-950/50 border border-slate-800/80">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[11px] font-semibold text-slate-400 uppercase">Footer Year</span>
-                    <Calendar className="w-4 h-4 text-amber-400" />
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase">
+                      Footer Year
+                    </span>
+                    <Calendar className="w-4 h-4 text-sky-400" />
                   </div>
                   <div className="text-sm font-bold text-white">
                     {audit.copyright.detectedYear ? `Year ${audit.copyright.detectedYear}` : 'Not Detected'}
@@ -221,20 +325,6 @@ export function AuditDetailsModal({
                     ) : (
                       <span className="text-emerald-400 font-medium">Up to Date</span>
                     )}
-                  </div>
-                </div>
-
-                {/* Response Speed */}
-                <div className="p-3.5 rounded-xl bg-slate-950/50 border border-slate-800/80">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[11px] font-semibold text-slate-400 uppercase">Speed Latency</span>
-                    <Clock className="w-4 h-4 text-cyan-400" />
-                  </div>
-                  <div className="text-sm font-bold text-white">
-                    {audit.responseTimeMs} ms
-                  </div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">
-                    {audit.responseTimeMs < 1200 ? '⚡ Fast Response' : 'Moderate delay'}
                   </div>
                 </div>
               </div>
@@ -262,7 +352,9 @@ export function AuditDetailsModal({
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-400 italic">No direct email found in HTML or contact pages.</p>
+                    <p className="text-xs text-slate-400 italic">
+                      No direct email found in HTML or contact pages.
+                    </p>
                   )}
                 </div>
 
@@ -274,34 +366,65 @@ export function AuditDetailsModal({
                       <Share2 className="w-3.5 h-3.5 text-pink-400" />
                       <span>Social Media Presence</span>
                     </h3>
-                    {socials && (socials.facebook || socials.instagram || socials.tiktok || socials.linkedin || socials.twitter || socials.youtube) ? (
+                    {socials &&
+                    (socials.facebook ||
+                      socials.instagram ||
+                      socials.tiktok ||
+                      socials.linkedin ||
+                      socials.twitter ||
+                      socials.youtube) ? (
                       <div className="flex flex-wrap gap-2">
                         {socials.facebook && (
-                          <a href={socials.facebook} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-600/10 text-blue-400 border border-blue-500/20 hover:bg-blue-600/20 flex items-center gap-1.5">
+                          <a
+                            href={socials.facebook}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-600/10 text-blue-400 border border-blue-500/20 hover:bg-blue-600/20 flex items-center gap-1.5"
+                          >
                             <span>Facebook</span>
                             <ExternalLink className="w-3 h-3" />
                           </a>
                         )}
                         {socials.instagram && (
-                          <a href={socials.instagram} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-600/10 text-pink-400 border border-pink-500/20 hover:bg-pink-600/20 flex items-center gap-1.5">
+                          <a
+                            href={socials.instagram}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-600/10 text-pink-400 border border-pink-500/20 hover:bg-pink-600/20 flex items-center gap-1.5"
+                          >
                             <span>Instagram</span>
                             <ExternalLink className="w-3 h-3" />
                           </a>
                         )}
                         {socials.tiktok && (
-                          <a href={socials.tiktok} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-md text-xs font-medium bg-teal-600/10 text-teal-300 border border-teal-500/20 hover:bg-teal-600/20 flex items-center gap-1.5">
+                          <a
+                            href={socials.tiktok}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2.5 py-1 rounded-md text-xs font-medium bg-teal-600/10 text-teal-300 border border-teal-500/20 hover:bg-teal-600/20 flex items-center gap-1.5"
+                          >
                             <span>TikTok</span>
                             <ExternalLink className="w-3 h-3" />
                           </a>
                         )}
                         {socials.linkedin && (
-                          <a href={socials.linkedin} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-md text-xs font-medium bg-sky-600/10 text-sky-400 border border-sky-500/20 hover:bg-sky-600/20 flex items-center gap-1.5">
+                          <a
+                            href={socials.linkedin}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2.5 py-1 rounded-md text-xs font-medium bg-sky-600/10 text-sky-400 border border-sky-500/20 hover:bg-sky-600/20 flex items-center gap-1.5"
+                          >
                             <span>LinkedIn</span>
                             <ExternalLink className="w-3 h-3" />
                           </a>
                         )}
                         {socials.twitter && (
-                          <a href={socials.twitter} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/30 text-slate-300 border border-slate-700 hover:bg-slate-700/50 flex items-center gap-1.5">
+                          <a
+                            href={socials.twitter}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/30 text-slate-300 border border-slate-700 hover:bg-slate-700/50 flex items-center gap-1.5"
+                          >
                             <span>X / Twitter</span>
                             <ExternalLink className="w-3 h-3" />
                           </a>
@@ -325,12 +448,18 @@ export function AuditDetailsModal({
                         </span>
                       )}
                       {audit.techStack.frameworks.map((fw, i) => (
-                        <span key={i} className="px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                        <span
+                          key={i}
+                          className="px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
+                        >
                           {fw}
                         </span>
                       ))}
                       {audit.techStack.analytics.map((an, i) => (
-                        <span key={i} className="px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                        <span
+                          key={i}
+                          className="px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
+                        >
                           {an}
                         </span>
                       ))}
@@ -368,9 +497,15 @@ export function AuditDetailsModal({
                         }`}
                       >
                         {isErr && <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />}
-                        {isWarn && <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />}
-                        {isSucc && <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />}
-                        {!isErr && !isWarn && !isSucc && <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />}
+                        {isWarn && (
+                          <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                        )}
+                        {isSucc && (
+                          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                        )}
+                        {!isErr && !isWarn && !isSucc && (
+                          <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                        )}
                         <div className="flex-1">
                           <div className="font-semibold text-white">{issue.title}</div>
                           <div className="text-slate-400 mt-0.5">{issue.description}</div>

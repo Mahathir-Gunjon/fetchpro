@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbGetLeadById, dbUpdateLead } from '@/lib/supabase';
 import { auditWebsite } from '@/lib/audit';
 import { generateColdPitch } from '@/lib/gemini';
+import { calculateOpportunityScore } from '@/lib/scoring';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -22,7 +23,7 @@ export async function OPTIONS() {
   return corsResponse({ ok: true });
 }
 
-// POST /api/leads/audit - Trigger full website audit
+// POST /api/leads/audit - Trigger website & SEO audit + opportunity scoring
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -47,20 +48,33 @@ export async function POST(req: NextRequest) {
     }
 
     // Run audit
-    const auditData = await auditWebsite(targetUrl);
+    const auditData = await auditWebsite(targetUrl, {
+      reviewsCount: lead?.reviews_count,
+    });
+
+    // Calculate Opportunity Score & Funnel Status
+    const opp = calculateOpportunityScore(lead || { website_url: targetUrl }, auditData);
+    auditData.opportunityScore = opp.score;
+    auditData.opportunityReasons = opp.reasons;
 
     // If linked to a lead, generate pitch and update DB
     let updatedLead = lead;
     if (leadId && lead) {
-      const pitchResult = await generateColdPitch(lead, auditData);
-      const newEmail = lead.email || (auditData.extractedEmails.length > 0 ? auditData.extractedEmails[0] : null);
+      const pitchResult = await generateColdPitch(
+        { ...lead, status: opp.recommendedStatus },
+        auditData
+      );
+      const newEmail =
+        lead.email || (auditData.extractedEmails.length > 0 ? auditData.extractedEmails[0] : null);
 
       updatedLead = await dbUpdateLead(leadId, {
         website_url: targetUrl,
         audit_data: auditData,
         socials: lead.socials || auditData.socials,
         email: newEmail,
-        status: 'audited',
+        opportunity_score: opp.score,
+        opportunity_reasons: opp.reasons,
+        status: lead.status === 'emailed' ? 'emailed' : opp.recommendedStatus,
         ai_subject: pitchResult.subject,
         ai_pitch: pitchResult.pitch,
       });
@@ -69,6 +83,7 @@ export async function POST(req: NextRequest) {
     return corsResponse({
       success: true,
       auditData,
+      opportunityScore: opp.score,
       lead: updatedLead,
     });
   } catch (error: any) {

@@ -1,4 +1,4 @@
-export type LeadStatus = 'pending' | 'audited' | 'emailed';
+export type LeadStatus = 'pending' | 'audited' | 'emailed' | 'hot_lead' | 'trash';
 
 export interface SocialLinks {
   facebook?: string | null;
@@ -16,11 +16,36 @@ export interface AuditIssue {
   impactScore: number;
 }
 
+export interface PageSpeedData {
+  score: number; // 0 - 100
+  fcp?: string;  // e.g. "1.8 s"
+  lcp?: string;  // e.g. "3.4 s"
+  isSlow: boolean;
+}
+
+export interface LocalSeoData {
+  hasLocalSchema: boolean;
+  schemaTypes: string[];
+  hasH1: boolean;
+  hasTitle: boolean;
+  hasDescription: boolean;
+}
+
+export interface CtaCheckData {
+  hasClearCta: boolean;
+  ctaLabels: string[];
+}
+
 export interface AuditData {
   url: string;
   healthScore: number; // 0 - 100
   auditedAt: string;
   responseTimeMs: number;
+  opportunityScore?: number;
+  opportunityReasons?: string[];
+  pageSpeed?: PageSpeedData;
+  localSeo?: LocalSeoData;
+  ctaCheck?: CtaCheckData;
   ssl: {
     hasSsl: boolean;
     valid: boolean;
@@ -68,6 +93,8 @@ export interface Lead {
   website_url?: string | null;
   email?: string | null;
   status: LeadStatus;
+  opportunity_score?: number | null;
+  opportunity_reasons?: string[] | null;
   audit_data?: AuditData | null;
   socials?: SocialLinks | null;
   ai_pitch?: string | null;
@@ -99,6 +126,8 @@ export interface PitchGenerationResult {
 export interface DashboardStats {
   totalLeads: number;
   auditedLeads: number;
+  hotLeadsCount: number;
+  trashLeadsCount: number;
   averageHealthScore: number;
   emailsSent: number;
   leadsWithWebsites: number;

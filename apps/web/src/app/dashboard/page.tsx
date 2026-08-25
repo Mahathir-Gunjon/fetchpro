@@ -19,10 +19,12 @@ export default function DashboardPage() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [leads, setLeads] = useState<Lead[]>(INITIAL_MOCK_LEADS);
-  const [activeTab, setActiveTab] = useState<DashboardViewTab>('all');
+  const [activeTab, setActiveTab] = useState<DashboardViewTab>('hot');
   const [stats, setStats] = useState<DashboardStats>({
     totalLeads: 0,
     auditedLeads: 0,
+    hotLeadsCount: 0,
+    trashLeadsCount: 0,
     averageHealthScore: 0,
     emailsSent: 0,
     leadsWithWebsites: 0,
@@ -79,20 +81,31 @@ export default function DashboardPage() {
   // Recalculate stats helper
   const calculateStats = (leadList: Lead[]): DashboardStats => {
     const totalLeads = leadList.length;
-    const auditedLeads = leadList.filter((l) => l.status === 'audited' || l.status === 'emailed').length;
+    const auditedLeads = leadList.filter(
+      (l) => l.status === 'audited' || l.status === 'emailed' || l.status === 'hot_lead' || l.status === 'trash'
+    ).length;
+    const hotLeadsCount = leadList.filter(
+      (l) => l.status === 'hot_lead' || (l.opportunity_score && l.opportunity_score >= 45) || !l.website_url
+    ).length;
+    const trashLeadsCount = leadList.filter(
+      (l) => l.status === 'trash' || (l.opportunity_score && l.opportunity_score <= 15 && l.audit_data?.healthScore && l.audit_data.healthScore >= 85)
+    ).length;
     const emailsSent = leadList.filter((l) => l.status === 'emailed').length;
     const leadsWithWebsites = leadList.filter((l) => !!l.website_url).length;
     const leadsWithoutWebsites = leadList.filter((l) => !l.website_url).length;
     const leadsWithPhones = leadList.filter((l) => !!l.phone).length;
 
     const scored = leadList.filter((l) => l.audit_data?.healthScore !== undefined);
-    const averageHealthScore = scored.length > 0
-      ? Math.round(scored.reduce((acc, l) => acc + (l.audit_data?.healthScore || 0), 0) / scored.length)
-      : 0;
+    const averageHealthScore =
+      scored.length > 0
+        ? Math.round(scored.reduce((acc, l) => acc + (l.audit_data?.healthScore || 0), 0) / scored.length)
+        : 0;
 
     return {
       totalLeads,
       auditedLeads,
+      hotLeadsCount,
+      trashLeadsCount,
       averageHealthScore,
       emailsSent,
       leadsWithWebsites,

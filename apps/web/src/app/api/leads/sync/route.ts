@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbBatchInsertLeads } from '@/lib/supabase';
 import { ExtractedLeadInput } from '@/lib/types';
+import { calculateOpportunityScore } from '@/lib/scoring';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -21,7 +22,7 @@ export async function OPTIONS() {
   return corsResponse({ ok: true });
 }
 
-// POST /api/leads/sync - Batch sync from Chrome Extension (NO auto-audit on sync)
+// POST /api/leads/sync - Batch sync from Chrome Extension with initial Opportunity Scoring
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get('Authorization');
@@ -41,19 +42,34 @@ export async function POST(req: NextRequest) {
       return corsResponse({ success: false, error: 'No leads provided in payload' }, 400);
     }
 
-    // Insert batch of leads with pending status (User will initiate audit on dashboard)
+    // Insert batch of leads with initial opportunity score & funnel classification
     const insertedLeads = await dbBatchInsertLeads(
-      rawLeads.map((l) => ({
-        business_name: l.business_name || 'Unnamed Business',
-        phone: l.phone || null,
-        rating: typeof l.rating === 'number' ? l.rating : 0,
-        reviews_count: typeof l.reviews_count === 'number' ? l.reviews_count : 0,
-        maps_url: l.maps_url || null,
-        website_url: l.website_url || null,
-        socials: l.socials || null,
-        email: l.email || null,
-        status: 'pending',
-      }))
+      rawLeads.map((l) => {
+        const initialOpp = calculateOpportunityScore(
+          {
+            business_name: l.business_name,
+            website_url: l.website_url,
+            rating: l.rating,
+            reviews_count: l.reviews_count,
+            socials: l.socials,
+          },
+          null
+        );
+
+        return {
+          business_name: l.business_name || 'Unnamed Business',
+          phone: l.phone || null,
+          rating: typeof l.rating === 'number' ? l.rating : 0,
+          reviews_count: typeof l.reviews_count === 'number' ? l.reviews_count : 0,
+          maps_url: l.maps_url || null,
+          website_url: l.website_url || null,
+          socials: l.socials || null,
+          email: l.email || null,
+          opportunity_score: initialOpp.score,
+          opportunity_reasons: initialOpp.reasons,
+          status: !l.website_url ? 'hot_lead' : 'pending',
+        };
+      })
     );
 
     return corsResponse({

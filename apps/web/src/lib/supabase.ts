@@ -191,7 +191,9 @@ export async function dbResetMockData(): Promise<Lead[]> {
 export async function dbGetStats(): Promise<DashboardStats> {
   const leads = await dbGetLeads();
   const totalLeads = leads.length;
-  const auditedLeads = leads.filter((l) => l.status === 'audited' || l.status === 'emailed').length;
+  const auditedLeads = leads.filter((l) => l.status === 'audited' || l.status === 'emailed' || l.status === 'hot_lead' || l.status === 'trash').length;
+  const hotLeadsCount = leads.filter((l) => l.status === 'hot_lead' || (l.opportunity_score && l.opportunity_score >= 45)).length;
+  const trashLeadsCount = leads.filter((l) => l.status === 'trash').length;
   const emailsSent = leads.filter((l) => l.status === 'emailed').length;
   const leadsWithWebsites = leads.filter((l) => !!l.website_url).length;
   const leadsWithoutWebsites = leads.filter((l) => !l.website_url).length;
@@ -205,6 +207,8 @@ export async function dbGetStats(): Promise<DashboardStats> {
   return {
     totalLeads,
     auditedLeads,
+    hotLeadsCount,
+    trashLeadsCount,
     averageHealthScore,
     emailsSent,
     leadsWithWebsites,
