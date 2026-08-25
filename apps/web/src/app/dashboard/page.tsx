@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Lead, DashboardStats, ExtractedLeadInput } from '@/lib/types';
 import { Navbar } from '@/components/Navbar';
+import { Sidebar, DashboardViewTab } from '@/components/Sidebar';
 import { StatsOverview } from '@/components/StatsOverview';
 import { LeadsTable } from '@/components/LeadsTable';
 import { AuditDetailsModal } from '@/components/AuditDetailsModal';
@@ -10,17 +11,19 @@ import { PitchEditorModal } from '@/components/PitchEditorModal';
 import { AddLeadModal } from '@/components/AddLeadModal';
 import { ExtensionConfigModal } from '@/components/ExtensionConfigModal';
 import { ToastContainer, ToastMessage } from '@/components/Toast';
-import { INITIAL_MOCK_LEADS } from '@/lib/mock-data';
+import { INITIAL_MOCK_LEADS, SAMPLE_DEMO_LEADS } from '@/lib/mock-data';
 
 export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>(INITIAL_MOCK_LEADS);
+  const [activeTab, setActiveTab] = useState<DashboardViewTab>('all');
   const [stats, setStats] = useState<DashboardStats>({
-    totalLeads: INITIAL_MOCK_LEADS.length,
-    auditedLeads: INITIAL_MOCK_LEADS.filter((l) => l.status === 'audited' || l.status === 'emailed').length,
-    averageHealthScore: 63,
-    emailsSent: 1,
-    leadsWithWebsites: INITIAL_MOCK_LEADS.filter((l) => !!l.website_url).length,
-    leadsWithPhones: INITIAL_MOCK_LEADS.filter((l) => !!l.phone).length,
+    totalLeads: 0,
+    auditedLeads: 0,
+    averageHealthScore: 0,
+    emailsSent: 0,
+    leadsWithWebsites: 0,
+    leadsWithoutWebsites: 0,
+    leadsWithPhones: 0,
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -48,30 +51,13 @@ export default function DashboardPage() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Helper to merge and deduplicate leads
-  const mergeLeads = (existing: Lead[], incoming: Lead[]): Lead[] => {
-    const map = new Map<string, Lead>();
-    // First existing
-    existing.forEach((l) => {
-      const key = l.id || l.maps_url || l.business_name.toLowerCase();
-      map.set(key, l);
-    });
-    // Incoming overrides/adds
-    incoming.forEach((l) => {
-      const key = l.id || l.maps_url || l.business_name.toLowerCase();
-      map.set(key, l);
-    });
-    return Array.from(map.values()).sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-  };
-
   // Recalculate stats helper
   const calculateStats = (leadList: Lead[]): DashboardStats => {
     const totalLeads = leadList.length;
     const auditedLeads = leadList.filter((l) => l.status === 'audited' || l.status === 'emailed').length;
     const emailsSent = leadList.filter((l) => l.status === 'emailed').length;
     const leadsWithWebsites = leadList.filter((l) => !!l.website_url).length;
+    const leadsWithoutWebsites = leadList.filter((l) => !l.website_url).length;
     const leadsWithPhones = leadList.filter((l) => !!l.phone).length;
 
     const scored = leadList.filter((l) => l.audit_data?.healthScore !== undefined);
@@ -85,6 +71,7 @@ export default function DashboardPage() {
       averageHealthScore,
       emailsSent,
       leadsWithWebsites,
+      leadsWithoutWebsites,
       leadsWithPhones,
     };
   };
@@ -100,6 +87,22 @@ export default function DashboardPage() {
     }
   };
 
+  // Merge leads deduplicated
+  const mergeLeads = (existing: Lead[], incoming: Lead[]): Lead[] => {
+    const map = new Map<string, Lead>();
+    existing.forEach((l) => {
+      const key = l.id || l.maps_url || l.business_name.toLowerCase();
+      map.set(key, l);
+    });
+    incoming.forEach((l) => {
+      const key = l.id || l.maps_url || l.business_name.toLowerCase();
+      map.set(key, l);
+    });
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  };
+
   // Fetch leads and stats from API
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -107,7 +110,6 @@ export default function DashboardPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.leads)) {
-          // Merge with localStorage
           let savedLocal: Lead[] = [];
           if (typeof window !== 'undefined') {
             try {
@@ -122,21 +124,20 @@ export default function DashboardPage() {
         }
       }
     } catch (err) {
-      console.warn('API fetch warning, using local state:', err);
+      console.warn('API fetch warning, using local storage state:', err);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // On initial mount
+  // Initial mount & periodic poller
   useEffect(() => {
-    // 1. Load from localStorage immediately for zero latency
     if (typeof window !== 'undefined') {
       try {
         const raw = localStorage.getItem('leadflow_persisted_leads');
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             setLeads(parsed);
             setStats(calculateStats(parsed));
           }
@@ -144,10 +145,8 @@ export default function DashboardPage() {
       } catch (e) {}
     }
 
-    // 2. Fetch from API
     fetchDashboardData();
 
-    // 3. Setup real-time polling every 4 seconds so synced leads from extension appear automatically
     const interval = setInterval(() => {
       fetchDashboardData();
     }, 4000);
@@ -182,7 +181,7 @@ export default function DashboardPage() {
         addToast(
           'success',
           'Audit Completed',
-          `Score: ${data.auditData.healthScore}/100 for ${targetLead.business_name}`
+          `Health Score: ${data.auditData.healthScore}/100 for ${targetLead.business_name}`
         );
       } else {
         throw new Error(data.error || 'Audit failed');
@@ -274,7 +273,7 @@ export default function DashboardPage() {
       });
 
       const data = await res.json();
-      const newLead = data.lead || {
+      const newLead: Lead = data.lead || {
         id: `lead_${Date.now()}`,
         business_name: leadInput.business_name,
         phone: leadInput.phone || null,
@@ -283,6 +282,7 @@ export default function DashboardPage() {
         maps_url: leadInput.maps_url || null,
         website_url: leadInput.website_url || null,
         email: leadInput.email || null,
+        socials: leadInput.socials || null,
         status: 'pending' as const,
         created_at: new Date().toISOString(),
       };
@@ -291,7 +291,6 @@ export default function DashboardPage() {
       persistLeads(updated);
       addToast('success', 'Lead Added', `Added ${leadInput.business_name} to pipeline.`);
 
-      // Automatically trigger audit if website is provided
       if (leadInput.website_url) {
         handleRunAudit(newLead.id);
       }
@@ -306,11 +305,31 @@ export default function DashboardPage() {
 
     try {
       await fetch(`/api/leads?id=${leadId}`, { method: 'DELETE' });
-      const updated = leads.filter((l) => l.id !== leadId);
-      persistLeads(updated);
-      addToast('info', 'Lead Deleted', 'Removed lead from pipeline.');
-    } catch (err) {
-      console.error('Delete lead error:', err);
+    } catch (err) {}
+
+    const updated = leads.filter((l) => l.id !== leadId);
+    persistLeads(updated);
+    addToast('info', 'Lead Deleted', 'Removed lead from pipeline.');
+  };
+
+  // Delete Multiple Leads
+  const handleDeleteMultipleLeads = async (leadIds: string[]) => {
+    for (const id of leadIds) {
+      try {
+        await fetch(`/api/leads?id=${id}`, { method: 'DELETE' });
+      } catch (e) {}
+    }
+    const idSet = new Set(leadIds);
+    const updated = leads.filter((l) => !idSet.has(l.id));
+    persistLeads(updated);
+    addToast('info', 'Leads Deleted', `Removed ${leadIds.length} lead(s) from pipeline.`);
+  };
+
+  // Clear All Leads
+  const handleClearAllLeads = () => {
+    if (confirm('Are you sure you want to delete ALL leads from your pipeline?')) {
+      persistLeads([]);
+      addToast('info', 'Pipeline Cleared', 'All leads have been removed.');
     }
   };
 
@@ -320,11 +339,11 @@ export default function DashboardPage() {
     try {
       const res = await fetch('/api/leads/demo-seed', { method: 'POST' });
       const data = await res.json();
-      const freshLeads = data.leads || INITIAL_MOCK_LEADS;
+      const freshLeads = data.leads || SAMPLE_DEMO_LEADS;
       persistLeads(freshLeads);
-      addToast('success', 'Demo Leads Reloaded', 'Loaded 6 sample leads with rich audit metrics.');
+      addToast('success', 'Sample Leads Loaded', 'Loaded sample leads with rich audit metrics.');
     } catch (err) {
-      console.error('Demo seed error:', err);
+      persistLeads(SAMPLE_DEMO_LEADS);
     } finally {
       setIsResetting(false);
     }
@@ -348,50 +367,73 @@ export default function DashboardPage() {
         isResetting={isResetting}
       />
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-              <span>B2B Pipeline & Website Audits</span>
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Manage extracted Google Maps leads, inspect automated audit flaws, and dispatch AI cold pitches.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsExtensionConfigOpen(true)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 transition-all"
-            >
-              <span>Connect Scraper Extension</span>
-            </button>
-            <button
-              onClick={() => setIsAddLeadOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-md shadow-blue-600/25 transition-all"
-            >
-              <span>+ Add Lead</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Stats Overview */}
-        <StatsOverview stats={stats} />
-
-        {/* Leads Table */}
-        <LeadsTable
-          leads={leads}
-          onOpenAudit={(lead) => setSelectedAuditLead(lead)}
-          onOpenPitchEditor={(lead) => setSelectedPitchLead(lead)}
-          onRunAudit={handleRunAudit}
-          onDeleteLead={handleDeleteLead}
-          onExportCsv={handleExportCsv}
+      {/* Main Workspace with Sidebar */}
+      <div className="flex-1 flex max-w-[1600px] w-full mx-auto">
+        {/* Left Sidebar Navigation */}
+        <Sidebar
+          currentTab={activeTab}
+          onTabChange={setActiveTab}
+          stats={stats}
           onAddLead={() => setIsAddLeadOpen(true)}
-          auditingId={auditingId}
+          onOpenExtensionConfig={() => setIsExtensionConfigOpen(true)}
+          onResetDemo={handleResetDemo}
+          onClearAllLeads={handleClearAllLeads}
+          onExportCsv={handleExportCsv}
+          isResetting={isResetting}
         />
-      </main>
+
+        {/* Center Main Dashboard Content */}
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 space-y-6 overflow-hidden">
+          {/* Header Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+                <span>B2B Lead Pipeline & Website Audits</span>
+              </h1>
+              <p className="text-xs text-slate-400 mt-1">
+                Filter target prospects, run high-speed website audits, inspect social links, and dispatch AI pitches.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsExtensionConfigOpen(true)}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 transition-all"
+              >
+                <span>Connect Chrome Scraper</span>
+              </button>
+              <button
+                onClick={() => setIsAddLeadOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-md shadow-blue-600/25 transition-all"
+              >
+                <span>+ Add Lead</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Clickable Stats Overview */}
+          <StatsOverview
+            stats={stats}
+            currentTab={activeTab}
+            onSelectTab={setActiveTab}
+          />
+
+          {/* Leads Table */}
+          <LeadsTable
+            leads={leads}
+            onOpenAudit={(lead) => setSelectedAuditLead(lead)}
+            onOpenPitchEditor={(lead) => setSelectedPitchLead(lead)}
+            onRunAudit={handleRunAudit}
+            onDeleteLead={handleDeleteLead}
+            onDeleteMultipleLeads={handleDeleteMultipleLeads}
+            onExportCsv={handleExportCsv}
+            onAddLead={() => setIsAddLeadOpen(true)}
+            auditingId={auditingId}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
+        </main>
+      </div>
 
       {/* Modals */}
       <AuditDetailsModal

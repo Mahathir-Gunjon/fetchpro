@@ -1,6 +1,6 @@
 /**
  * LeadFlow - Google Maps B2B Lead Scraper Content Script
- * Manifest V3 Resilient Engine
+ * Manifest V3 Resilient Engine & Social Links Extractor
  */
 
 (function () {
@@ -136,6 +136,17 @@
       websiteUrl = webBtn.href;
     }
 
+    // Social Links
+    const socials = {};
+    const pageAnchors = document.querySelectorAll('a[href*="facebook.com"], a[href*="instagram.com"], a[href*="linkedin.com"], a[href*="twitter.com"], a[href*="x.com"]');
+    pageAnchors.forEach((a) => {
+      const href = a.href;
+      if (href.includes('facebook.com')) socials.facebook = href;
+      if (href.includes('instagram.com')) socials.instagram = href;
+      if (href.includes('linkedin.com')) socials.linkedin = href;
+      if (href.includes('twitter.com') || href.includes('x.com')) socials.twitter = href;
+    });
+
     const lead = {
       id: 'ext_' + Date.now() + '_' + Math.random().toString(36).substr(2, 7),
       business_name: businessName,
@@ -145,6 +156,7 @@
       status: 'Open',
       maps_url: window.location.href,
       website_url: websiteUrl || null,
+      socials: Object.keys(socials).length > 0 ? socials : null,
       email: null,
       scraped_at: new Date().toISOString(),
     };
@@ -260,6 +272,7 @@
         status: operationalStatus,
         maps_url: mapsUrl || window.location.href,
         website_url: websiteUrl || null,
+        socials: null,
         email: null,
         scraped_at: new Date().toISOString(),
       };
@@ -314,7 +327,6 @@
       // Scroll container down
       if (container && container !== document.body) {
         container.scrollTop += 750;
-        // Dispatch synthetic wheel event
         try {
           container.dispatchEvent(new WheelEvent('wheel', { deltaY: 750, bubbles: true }));
         } catch (e) {}

@@ -1,12 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { Lead, DashboardStats } from './types';
-import { INITIAL_MOCK_LEADS } from './mock-data';
+import { INITIAL_MOCK_LEADS, SAMPLE_DEMO_LEADS } from './mock-data';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Check if valid live Supabase credentials exist
 export const isSupabaseConfigured = Boolean(
   supabaseUrl &&
   supabaseAnonKey &&
@@ -14,19 +13,12 @@ export const isSupabaseConfigured = Boolean(
   supabaseUrl.startsWith('https://')
 );
 
-// Supabase client instance
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl!, supabaseServiceKey || supabaseAnonKey!)
   : null;
 
-/**
- * In-Memory fallback store for demo mode & local development
- */
 let inMemoryLeads: Lead[] = [...INITIAL_MOCK_LEADS];
 
-/**
- * Unified Lead Data Access Layer
- */
 export async function dbGetLeads(): Promise<Lead[]> {
   if (isSupabaseConfigured && supabase) {
     try {
@@ -35,12 +27,7 @@ export async function dbGetLeads(): Promise<Lead[]> {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('[Supabase DB Error] dbGetLeads:', error);
-        return inMemoryLeads;
-      }
-
-      if (data && data.length > 0) {
+      if (!error && data) {
         return data as Lead[];
       }
     } catch (err) {
@@ -81,6 +68,7 @@ export async function dbCreateLead(leadData: Partial<Lead>): Promise<Lead> {
     maps_url: leadData.maps_url || null,
     website_url: leadData.website_url || null,
     email: leadData.email || null,
+    socials: leadData.socials || null,
     status: leadData.status || 'pending',
     audit_data: leadData.audit_data || null,
     ai_pitch: leadData.ai_pitch || null,
@@ -118,6 +106,7 @@ export async function dbBatchInsertLeads(leads: Partial<Lead>[]): Promise<Lead[]
     maps_url: l.maps_url || null,
     website_url: l.website_url || null,
     email: l.email || null,
+    socials: l.socials || null,
     status: (l.status as any) || 'pending',
     audit_data: l.audit_data || null,
     ai_pitch: l.ai_pitch || null,
@@ -195,7 +184,7 @@ export async function dbDeleteLead(id: string): Promise<boolean> {
 }
 
 export async function dbResetMockData(): Promise<Lead[]> {
-  inMemoryLeads = [...INITIAL_MOCK_LEADS];
+  inMemoryLeads = [...SAMPLE_DEMO_LEADS];
   return inMemoryLeads;
 }
 
@@ -205,6 +194,7 @@ export async function dbGetStats(): Promise<DashboardStats> {
   const auditedLeads = leads.filter((l) => l.status === 'audited' || l.status === 'emailed').length;
   const emailsSent = leads.filter((l) => l.status === 'emailed').length;
   const leadsWithWebsites = leads.filter((l) => !!l.website_url).length;
+  const leadsWithoutWebsites = leads.filter((l) => !l.website_url).length;
   const leadsWithPhones = leads.filter((l) => !!l.phone).length;
 
   const scoredLeads = leads.filter((l) => l.audit_data?.healthScore !== undefined);
@@ -218,6 +208,7 @@ export async function dbGetStats(): Promise<DashboardStats> {
     averageHealthScore,
     emailsSent,
     leadsWithWebsites,
+    leadsWithoutWebsites,
     leadsWithPhones,
   };
 }

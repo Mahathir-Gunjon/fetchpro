@@ -1,10 +1,19 @@
 export type LeadStatus = 'pending' | 'audited' | 'emailed';
 
+export interface SocialLinks {
+  facebook?: string | null;
+  instagram?: string | null;
+  linkedin?: string | null;
+  twitter?: string | null;
+  youtube?: string | null;
+  tiktok?: string | null;
+}
+
 export interface AuditIssue {
   type: 'error' | 'warning' | 'info' | 'success';
   title: string;
   description: string;
-  impactScore: number; // Penalty deducted or reward
+  impactScore: number;
 }
 
 export interface AuditData {
@@ -43,6 +52,7 @@ export interface AuditData {
     rawText?: string;
   };
   extractedEmails: string[];
+  socials?: SocialLinks;
   issues: AuditIssue[];
   keyRecommendations: string[];
 }
@@ -59,6 +69,7 @@ export interface Lead {
   email?: string | null;
   status: LeadStatus;
   audit_data?: AuditData | null;
+  socials?: SocialLinks | null;
   ai_pitch?: string | null;
   ai_subject?: string | null;
   emailed_at?: string | null;
@@ -75,6 +86,7 @@ export interface ExtractedLeadInput {
   maps_url?: string | null;
   website_url?: string | null;
   email?: string | null;
+  socials?: SocialLinks | null;
   status?: string;
 }
 
@@ -90,5 +102,6 @@ export interface DashboardStats {
   averageHealthScore: number;
   emailsSent: number;
   leadsWithWebsites: number;
+  leadsWithoutWebsites: number;
   leadsWithPhones: number;
 }

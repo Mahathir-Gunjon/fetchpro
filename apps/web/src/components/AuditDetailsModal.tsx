@@ -19,6 +19,7 @@ import {
   Sparkles,
   ExternalLink,
   RotateCw,
+  Share2,
 } from 'lucide-react';
 
 interface AuditDetailsModalProps {
@@ -41,6 +42,7 @@ export function AuditDetailsModal({
   if (!isOpen || !lead) return null;
 
   const audit = lead.audit_data;
+  const socials = lead.socials || audit?.socials;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
@@ -60,15 +62,35 @@ export function AuditDetailsModal({
                   </span>
                 )}
               </h2>
-              <a
-                href={lead.website_url || '#'}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs text-slate-400 hover:text-blue-400 flex items-center gap-1 mt-0.5 truncate max-w-md"
-              >
-                <span>{lead.website_url || 'No Website URL'}</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
+              <div className="flex items-center gap-3 mt-0.5">
+                <a
+                  href={lead.website_url || '#'}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-slate-400 hover:text-blue-400 flex items-center gap-1 truncate max-w-xs"
+                >
+                  <span>{lead.website_url || 'No Website URL'}</span>
+                  {lead.website_url && <ExternalLink className="w-3 h-3" />}
+                </a>
+
+                {/* Social icons in header */}
+                {socials && (socials.facebook || socials.instagram || socials.linkedin || socials.twitter || socials.youtube || socials.tiktok) && (
+                  <div className="flex items-center gap-1.5 pl-2 border-l border-slate-800">
+                    {socials.facebook && (
+                      <a href={socials.facebook} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-blue-400 hover:text-blue-300">fb</a>
+                    )}
+                    {socials.instagram && (
+                      <a href={socials.instagram} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-pink-400 hover:text-pink-300">ig</a>
+                    )}
+                    {socials.linkedin && (
+                      <a href={socials.linkedin} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-sky-400 hover:text-sky-300">in</a>
+                    )}
+                    {socials.twitter && (
+                      <a href={socials.twitter} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-slate-300 hover:text-white">𝕏</a>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <button
@@ -86,16 +108,31 @@ export function AuditDetailsModal({
               <AlertCircle className="w-12 h-12 text-amber-400 mx-auto mb-3 opacity-80" />
               <h3 className="text-lg font-semibold text-white">No Audit Data Yet</h3>
               <p className="text-sm text-slate-400 max-w-sm mx-auto mt-1 mb-6">
-                Run an automated audit to analyze SSL certificates, mobile viewport tags, tech stack, copyright freshness, and email addresses.
+                {lead.website_url
+                  ? 'Run an automated audit to analyze SSL certificates, mobile viewport tags, tech stack, copyright freshness, and email addresses.'
+                  : 'This lead has no website URL. Pitch them a brand new mobile-friendly website to capture Google Maps traffic!'}
               </p>
-              <button
-                onClick={() => onAuditAgain(lead.id)}
-                disabled={isAuditing || !lead.website_url}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 shadow-lg shadow-blue-600/25 transition-all"
-              >
-                <RotateCw className={`w-4 h-4 ${isAuditing ? 'animate-spin' : ''}`} />
-                <span>{isAuditing ? 'Auditing Website...' : 'Run Automated Audit Now'}</span>
-              </button>
+              {lead.website_url ? (
+                <button
+                  onClick={() => onAuditAgain(lead.id)}
+                  disabled={isAuditing}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 shadow-lg shadow-blue-600/25 transition-all"
+                >
+                  <RotateCw className={`w-4 h-4 ${isAuditing ? 'animate-spin' : ''}`} />
+                  <span>{isAuditing ? 'Auditing Website...' : 'Run Automated Audit Now'}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onOpenPitchEditor(lead);
+                  }}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white bg-amber-600 hover:bg-amber-500 shadow-lg transition-all"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Generate New Website Pitch</span>
+                </button>
+              )}
             </div>
           ) : (
             <>
@@ -194,12 +231,12 @@ export function AuditDetailsModal({
                     {audit.responseTimeMs} ms
                   </div>
                   <div className="text-[11px] text-slate-400 mt-0.5">
-                    {audit.responseTimeMs < 1000 ? '⚡ Fast Response' : 'Moderate delay'}
+                    {audit.responseTimeMs < 1200 ? '⚡ Fast Response' : 'Moderate delay'}
                   </div>
                 </div>
               </div>
 
-              {/* Scraped Emails & Tech Stack */}
+              {/* Scraped Emails, Tech Stack & Socials */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Scraped Emails */}
                 <div className="p-4 rounded-xl bg-slate-950/50 border border-slate-800/80">
@@ -226,37 +263,72 @@ export function AuditDetailsModal({
                   )}
                 </div>
 
-                {/* Tech Stack */}
-                <div className="p-4 rounded-xl bg-slate-950/50 border border-slate-800/80">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 mb-3">
-                    <Layers className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>Detected Tech Stack</span>
-                  </h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {audit.techStack.cms && (
-                      <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                        CMS: {audit.techStack.cms}
-                      </span>
+                {/* Social Profiles & Tech Stack */}
+                <div className="p-4 rounded-xl bg-slate-950/50 border border-slate-800/80 space-y-4">
+                  {/* Social Profiles */}
+                  <div>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 mb-2">
+                      <Share2 className="w-3.5 h-3.5 text-pink-400" />
+                      <span>Social Media Presence</span>
+                    </h3>
+                    {socials && (socials.facebook || socials.instagram || socials.linkedin || socials.twitter || socials.youtube || socials.tiktok) ? (
+                      <div className="flex flex-wrap gap-2">
+                        {socials.facebook && (
+                          <a href={socials.facebook} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-600/10 text-blue-400 border border-blue-500/20 hover:bg-blue-600/20 flex items-center gap-1.5">
+                            <span>Facebook</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                        {socials.instagram && (
+                          <a href={socials.instagram} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-600/10 text-pink-400 border border-pink-500/20 hover:bg-pink-600/20 flex items-center gap-1.5">
+                            <span>Instagram</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                        {socials.linkedin && (
+                          <a href={socials.linkedin} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-md text-xs font-medium bg-sky-600/10 text-sky-400 border border-sky-500/20 hover:bg-sky-600/20 flex items-center gap-1.5">
+                            <span>LinkedIn</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                        {socials.twitter && (
+                          <a href={socials.twitter} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/30 text-slate-300 border border-slate-700 hover:bg-slate-700/50 flex items-center gap-1.5">
+                            <span>X / Twitter</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 italic">No social media links detected.</p>
                     )}
-                    {audit.techStack.frameworks.map((fw, i) => (
-                      <span
-                        key={i}
-                        className="px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
-                      >
-                        {fw}
-                      </span>
-                    ))}
-                    {audit.techStack.analytics.map((an, i) => (
-                      <span
-                        key={i}
-                        className="px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
-                      >
-                        {an}
-                      </span>
-                    ))}
-                    {!audit.techStack.cms && audit.techStack.frameworks.length === 0 && (
-                      <span className="text-xs text-slate-400 italic">Custom / Static HTML</span>
-                    )}
+                  </div>
+
+                  {/* Tech Stack */}
+                  <div>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 mb-2">
+                      <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Tech Stack</span>
+                    </h3>
+                    <div className="flex flex-wrap gap-1.5">
+                      {audit.techStack.cms && (
+                        <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                          CMS: {audit.techStack.cms}
+                        </span>
+                      )}
+                      {audit.techStack.frameworks.map((fw, i) => (
+                        <span key={i} className="px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                          {fw}
+                        </span>
+                      ))}
+                      {audit.techStack.analytics.map((an, i) => (
+                        <span key={i} className="px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                          {an}
+                        </span>
+                      ))}
+                      {!audit.techStack.cms && audit.techStack.frameworks.length === 0 && (
+                        <span className="text-xs text-slate-400 italic">Custom / Static HTML</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
