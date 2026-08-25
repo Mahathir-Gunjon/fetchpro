@@ -195,7 +195,6 @@ export async function dbGetStats(): Promise<DashboardStats> {
   const emailsSent = leads.filter((l) => l.status === 'emailed').length;
   const leadsWithWebsites = leads.filter((l) => !!l.website_url).length;
   const leadsWithoutWebsites = leads.filter((l) => !l.website_url).length;
-  const leadsWithUnlinkedWebsites = leads.filter((l) => Boolean(l.unlinked_gmb_website)).length;
   const leadsWithPhones = leads.filter((l) => !!l.phone).length;
 
   const scoredLeads = leads.filter((l) => l.audit_data?.healthScore !== undefined);
@@ -210,7 +209,6 @@ export async function dbGetStats(): Promise<DashboardStats> {
     emailsSent,
     leadsWithWebsites,
     leadsWithoutWebsites,
-    leadsWithUnlinkedWebsites,
     leadsWithPhones,
   };
 }

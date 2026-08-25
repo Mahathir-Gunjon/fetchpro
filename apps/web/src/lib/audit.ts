@@ -18,7 +18,7 @@ function isValidScrapedEmail(email: string): boolean {
   const lower = email.toLowerCase().trim();
   const blockedDomains = ['sentry.io', 'wixpress.com', 'w3.org', 'domain.com', 'example.com', 'schema.org', 'cloudflare.com', 'googleapis.com'];
   const blockedPrefixes = ['noreply', 'no-reply', 'mailer-daemon', 'donotreply', 'privacy', 'abuse'];
-  const extensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.css', '.js', '.woff'];
+  const extensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.css', '.js', '.woff', '.woff2'];
 
   if (extensions.some((ext) => lower.endsWith(ext))) return false;
   if (blockedDomains.some((d) => lower.includes(d))) return false;
@@ -28,7 +28,7 @@ function isValidScrapedEmail(email: string): boolean {
 }
 
 /**
- * Extract email addresses from raw HTML text
+ * Extract email addresses from raw HTML text & mailto links
  */
 function extractEmailsFromHtml(html: string): string[] {
   const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi;
@@ -54,16 +54,16 @@ function extractEmailsFromHtml(html: string): string[] {
 }
 
 /**
- * Extract social media profile links
+ * Extract social media profile links (Facebook, Instagram, TikTok, LinkedIn, Twitter/X, YouTube)
  */
-function extractSocialProfiles(html: string): SocialLinks {
+export function extractSocialProfiles(html: string): SocialLinks {
   const socials: SocialLinks = {
     facebook: null,
     instagram: null,
+    tiktok: null,
     linkedin: null,
     twitter: null,
     youtube: null,
-    tiktok: null,
   };
 
   const linkRegex = /href=["'](https?:\/\/[^"'\s]+)["']/gi;
@@ -76,14 +76,14 @@ function extractSocialProfiles(html: string): SocialLinks {
       socials.facebook = url;
     } else if (!socials.instagram && lower.includes('instagram.com/') && !lower.includes('/p/')) {
       socials.instagram = url;
-    } else if (!socials.linkedin && lower.includes('linkedin.com/company/') || (!socials.linkedin && lower.includes('linkedin.com/in/'))) {
+    } else if (!socials.tiktok && lower.includes('tiktok.com/@')) {
+      socials.tiktok = url;
+    } else if (!socials.linkedin && (lower.includes('linkedin.com/company/') || lower.includes('linkedin.com/in/'))) {
       socials.linkedin = url;
     } else if (!socials.twitter && (lower.includes('twitter.com/') || lower.includes('x.com/')) && !lower.includes('/intent')) {
       socials.twitter = url;
     } else if (!socials.youtube && (lower.includes('youtube.com/c/') || lower.includes('youtube.com/@') || lower.includes('youtube.com/channel/'))) {
       socials.youtube = url;
-    } else if (!socials.tiktok && lower.includes('tiktok.com/@')) {
-      socials.tiktok = url;
     }
   }
 
@@ -93,14 +93,10 @@ function extractSocialProfiles(html: string): SocialLinks {
 /**
  * Perform deterministic, high-speed audit on target website
  */
-export async function auditWebsite(
-  targetUrl: string,
-  options?: { unlinkedGmbWebsite?: boolean }
-): Promise<AuditData> {
+export async function auditWebsite(targetUrl: string): Promise<AuditData> {
   const cleanUrl = normalizeUrl(targetUrl);
   const startTime = Date.now();
   const currentYear = new Date().getFullYear();
-  const unlinkedGmbWebsite = Boolean(options?.unlinkedGmbWebsite);
 
   let html = '';
   let responseTimeMs = 0;
@@ -112,19 +108,7 @@ export async function auditWebsite(
   const recommendations: string[] = [];
   let score = 100;
 
-  // If website was found in Web Results but not on primary GMB button
-  if (unlinkedGmbWebsite) {
-    score -= 15;
-    issues.push({
-      type: 'error',
-      title: 'Website Not Linked on Google Maps Profile',
-      description: 'The business owns this website, but it is NOT linked to their primary Google Business listing (no "Website" button). Customers searching on Google Maps cannot click through to book.',
-      impactScore: -15,
-    });
-    recommendations.push('Add your website URL to your Google Business Profile to capture mobile search booking traffic.');
-  }
-
-  // 1. Fetch website HTML with fast 4s timeout
+  // 1. Fetch website HTML with fast 4000ms abort controller
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 4000);
@@ -146,6 +130,7 @@ export async function auditWebsite(
     html = await response.text();
   } catch (error: any) {
     responseTimeMs = Date.now() - startTime;
+    // Attempt HTTP fallback if HTTPS timed out or failed
     if (cleanUrl.startsWith('https://')) {
       try {
         const httpUrl = cleanUrl.replace('https://', 'http://');
@@ -164,10 +149,9 @@ export async function auditWebsite(
   if (!html || html.length < 50) {
     return {
       url: targetUrl,
-      healthScore: 15,
+      healthScore: 20,
       auditedAt: new Date().toISOString(),
       responseTimeMs: responseTimeMs || 4000,
-      unlinkedGmbWebsite,
       ssl: { hasSsl: false, valid: false },
       mobileResponsive: { hasViewport: false, isMobileFriendly: false },
       meta: { hasOgImage: false },
@@ -179,12 +163,12 @@ export async function auditWebsite(
         {
           type: 'error',
           title: 'Website Inaccessible / Offline',
-          description: 'Server failed to respond or blocked automated inspection.',
-          impactScore: -85,
+          description: 'Server failed to respond within 4s. High bounce risk for potential clients.',
+          impactScore: -80,
         },
       ],
       keyRecommendations: [
-        'Urgent: The domain appears offline or unreachable. High opportunity to pitch reliable hosting and a modern rebuild.',
+        'Domain appears offline or unresponsive. High opportunity to pitch reliable modern hosting.',
       ],
     };
   }
@@ -326,7 +310,7 @@ export async function auditWebsite(
       issues.push({
         type: 'warning',
         title: `Outdated Copyright (${detectedYear})`,
-        description: `Footer shows copyright ${detectedYear}, indicating the website is neglected.`,
+        description: `Footer shows copyright ${detectedYear}, indicating website neglect.`,
         impactScore: -10,
       });
       recommendations.push(`Update the footer copyright year to ${currentYear} and refresh dated content.`);
@@ -362,7 +346,6 @@ export async function auditWebsite(
     healthScore: finalScore,
     auditedAt: new Date().toISOString(),
     responseTimeMs,
-    unlinkedGmbWebsite,
     ssl: {
       hasSsl,
       valid: sslValid,
@@ -390,6 +373,6 @@ export async function auditWebsite(
     extractedEmails,
     socials,
     issues,
-    keyRecommendations: recommendations.length > 0 ? recommendations : ['Website is in healthy condition. Consider adding an online booking widget.'],
+    keyRecommendations: recommendations.length > 0 ? recommendations : ['Website is in good condition. Consider adding an online booking widget.'],
   };
 }

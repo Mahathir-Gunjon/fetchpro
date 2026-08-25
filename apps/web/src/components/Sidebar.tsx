@@ -6,7 +6,6 @@ import {
   Users,
   Globe,
   Flame,
-  Link2Off,
   Send,
   AlertTriangle,
   Plus,
@@ -20,7 +19,7 @@ import {
 import { DashboardStats } from '@/lib/types';
 import { AUTH_STORAGE_KEY } from '@/lib/auth';
 
-export type DashboardViewTab = 'all' | 'audited' | 'unlinked' | 'nowebsite' | 'emailed' | 'critical';
+export type DashboardViewTab = 'all' | 'audited' | 'nowebsite' | 'emailed' | 'critical';
 
 interface SidebarProps {
   currentTab: DashboardViewTab;
@@ -73,13 +72,6 @@ export function Sidebar({
       icon: <Globe className="w-4 h-4" />,
       count: stats.auditedLeads,
       badgeColor: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
-    },
-    {
-      id: 'unlinked',
-      label: 'GMB Unlinked Sites',
-      icon: <Link2Off className="w-4 h-4 text-sky-400" />,
-      count: stats.leadsWithUnlinkedWebsites || 0,
-      badgeColor: 'text-sky-400 bg-sky-500/10 border-sky-500/20',
     },
     {
       id: 'nowebsite',

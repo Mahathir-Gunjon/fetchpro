@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { dbBatchInsertLeads, dbUpdateLead } from '@/lib/supabase';
-import { auditWebsite } from '@/lib/audit';
-import { generateColdPitch } from '@/lib/gemini';
+import { dbBatchInsertLeads } from '@/lib/supabase';
 import { ExtractedLeadInput } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +21,7 @@ export async function OPTIONS() {
   return corsResponse({ ok: true });
 }
 
-// POST /api/leads/sync - Batch sync from Chrome Extension
+// POST /api/leads/sync - Batch sync from Chrome Extension (NO auto-audit on sync)
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get('Authorization');
@@ -43,7 +41,7 @@ export async function POST(req: NextRequest) {
       return corsResponse({ success: false, error: 'No leads provided in payload' }, 400);
     }
 
-    // Insert batch of leads
+    // Insert batch of leads with pending status (User will initiate audit on dashboard)
     const insertedLeads = await dbBatchInsertLeads(
       rawLeads.map((l) => ({
         business_name: l.business_name || 'Unnamed Business',
@@ -52,42 +50,16 @@ export async function POST(req: NextRequest) {
         reviews_count: typeof l.reviews_count === 'number' ? l.reviews_count : 0,
         maps_url: l.maps_url || null,
         website_url: l.website_url || null,
-        unlinked_gmb_website: Boolean(l.unlinked_gmb_website),
         socials: l.socials || null,
         email: l.email || null,
         status: 'pending',
       }))
     );
 
-    // Auto-audit leads with websites in background
-    const leadsWithWebsites = insertedLeads.filter((l) => !!l.website_url).slice(0, 5);
-    (async () => {
-      for (const lead of leadsWithWebsites) {
-        if (!lead.website_url) continue;
-        try {
-          const auditResult = await auditWebsite(lead.website_url, {
-            unlinkedGmbWebsite: Boolean(lead.unlinked_gmb_website),
-          });
-          const pitchResult = await generateColdPitch(lead, auditResult);
-
-          await dbUpdateLead(lead.id, {
-            status: 'audited',
-            audit_data: auditResult,
-            email: lead.email || (auditResult.extractedEmails.length > 0 ? auditResult.extractedEmails[0] : null),
-            socials: lead.socials || auditResult.socials,
-            ai_subject: pitchResult.subject,
-            ai_pitch: pitchResult.pitch,
-          });
-        } catch (auditErr) {
-          console.warn(`[Sync Auto-Audit Error] Lead ${lead.id}:`, auditErr);
-        }
-      }
-    })().catch((err) => console.error('[Background Sync Worker Error]', err));
-
     return corsResponse({
       success: true,
       syncedCount: insertedLeads.length,
-      message: `Successfully synced ${insertedLeads.length} leads to FetchPro Dashboard!`,
+      message: `Successfully synced ${insertedLeads.length} leads to FetchPro! Ready for audit.`,
       leads: insertedLeads,
     });
   } catch (error: any) {

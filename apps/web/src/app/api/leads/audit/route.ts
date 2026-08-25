@@ -47,9 +47,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Run audit
-    const auditData = await auditWebsite(targetUrl, {
-      unlinkedGmbWebsite: Boolean(lead?.unlinked_gmb_website),
-    });
+    const auditData = await auditWebsite(targetUrl);
 
     // If linked to a lead, generate pitch and update DB
     let updatedLead = lead;

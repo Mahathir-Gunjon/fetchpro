@@ -4,10 +4,9 @@ import { AuditData, Lead, PitchGenerationResult } from './types';
 /**
  * Generate a high-converting 3-4 sentence cold outreach email
  * using Google Gemini AI, customized depending on:
- * 1. Has website but NOT linked on GMB profile (Huge conversion leak)
- * 2. Has Facebook/Instagram only (no official booking website)
- * 3. Has website with audit flaws (SSL, Mobile, Backdated Copyright, Speed)
- * 4. Has no website at all (Brand new website pitch)
+ * 1. Has website with audit flaws (SSL, Mobile, Backdated Copyright, Speed)
+ * 2. Has Facebook/Instagram/TikTok only (no official booking website)
+ * 3. Has no website at all (Brand new website pitch)
  */
 export async function generateColdPitch(
   lead: Partial<Lead>,
@@ -17,17 +16,14 @@ export async function generateColdPitch(
   const rating = lead.rating ? `${lead.rating}★` : '';
   const reviewsCount = lead.reviews_count ? `${lead.reviews_count} reviews` : '';
   const websiteUrl = lead.website_url || audit?.url || '';
-  const isUnlinkedGmbWebsite = Boolean(lead.unlinked_gmb_website);
   const socials = lead.socials || audit?.socials;
-  const hasSocialsOnly = !websiteUrl && Boolean(socials && (socials.facebook || socials.instagram));
+  const hasSocialsOnly = !websiteUrl && Boolean(socials && (socials.facebook || socials.instagram || socials.tiktok));
   const hasNoWebsite = !websiteUrl && !hasSocialsOnly;
 
   // Extract key hooks from audit
   const hooks: string[] = [];
-  if (isUnlinkedGmbWebsite) {
-    hooks.push(`Your website (${websiteUrl.replace(/^https?:\/\/(www\.)?/, '')}) is active but NOT linked to your Google Business Profile (no "Website" button on Google Maps).`);
-  } else if (hasSocialsOnly) {
-    hooks.push('Business relies on Facebook/Instagram on Google Maps without a dedicated online booking website.');
+  if (hasSocialsOnly) {
+    hooks.push('Business relies on Facebook/Instagram/TikTok on Google without a dedicated booking website.');
   } else if (hasNoWebsite) {
     hooks.push('Business has no active website or online booking page listed on Google Maps.');
   }
@@ -57,15 +53,10 @@ export async function generateColdPitch(
       const ai = new GoogleGenAI({ apiKey });
 
       let angleDescription = '';
-      if (isUnlinkedGmbWebsite) {
+      if (hasSocialsOnly) {
         angleDescription = `
-- Scenario: The business has a website (${websiteUrl}), BUT they forgot to link it to their Google Business listing (their Google Maps profile does not have a "Website" button).
-- Key Point: Customers searching on Google Maps cannot click through to see pricing or book appointments with one tap, causing them to bounce to competitors.
-`;
-      } else if (hasSocialsOnly) {
-        angleDescription = `
-- Scenario: The business has a Facebook/Instagram page, but NO dedicated booking website.
-- Key Point: Social media pages don't allow fast frictionless booking or SEO indexing on Google. Pitch them a modern 1-page booking site.
+- Scenario: The business has a Facebook/Instagram/TikTok presence, but NO dedicated fast-booking website.
+- Key Point: Social media pages make it harder for mobile visitors on Google Maps to book instant quotes. Pitch them a modern 1-page booking site.
 `;
       } else if (hasNoWebsite) {
         angleDescription = `
@@ -89,7 +80,7 @@ ${angleDescription}
 
 Rules:
 1. Line 1: Genuine compliment on their local reputation / stellar Google Maps reviews.
-2. Line 2-3: Point out the exact finding (${isUnlinkedGmbWebsite ? 'their website is missing from their Google Maps profile button' : 'the specific website flaws or opportunity'}).
+2. Line 2-3: Point out the exact finding (${hasNoWebsite ? 'they have no dedicated website on Google Maps' : 'the specific website flaws or mobile optimization opportunities'}).
 3. Line 4: Friendly, zero-pressure call to action (e.g. "I recorded a quick 45-second video walkthrough showing how to fix this—would you be open to seeing it?").
 4. Return ONLY valid JSON format:
 {"subject": "...", "pitch": "..."}
@@ -117,7 +108,7 @@ Rules:
     }
   }
 
-  return generateHeuristicPitch(businessName, rating, reviewsCount, hooks, websiteUrl, isUnlinkedGmbWebsite, hasSocialsOnly, hasNoWebsite);
+  return generateHeuristicPitch(businessName, rating, reviewsCount, hooks, websiteUrl, hasSocialsOnly, hasNoWebsite);
 }
 
 function generateHeuristicPitch(
@@ -126,23 +117,10 @@ function generateHeuristicPitch(
   reviewsCount: string,
   hooks: string[],
   websiteUrl: string,
-  isUnlinkedGmbWebsite: boolean,
   hasSocialsOnly: boolean,
   hasNoWebsite: boolean
 ): PitchGenerationResult {
   const cleanDomain = websiteUrl ? websiteUrl.replace(/^https?:\/\/(www\.)?/, '').split('/')[0] : '';
-
-  if (isUnlinkedGmbWebsite) {
-    return {
-      subject: `Missing website button for ${businessName} on Google Maps`,
-      pitch:
-        `Hi ${businessName} Team,\n\n` +
-        `Congrats on your fantastic ${rating || '5★'} reputation${reviewsCount ? ` across ${reviewsCount}` : ''} on Google Maps!\n\n` +
-        `I found your website at ${cleanDomain}, but noticed it's currently NOT linked to your Google Business profile (your listing doesn't have a "Website" button). Nearby customers looking for fast estimates might bounce to competitors because they can't view your services in one tap.\n\n` +
-        `I put together a 45-second video showing how to fix this and boost your direct bookings. Would you be open to me sending that over?`,
-      keyHooksUsed: ['Website unlinked on Google My Business'],
-    };
-  }
 
   if (hasSocialsOnly) {
     return {
@@ -150,7 +128,7 @@ function generateHeuristicPitch(
       pitch:
         `Hi ${businessName} Team,\n\n` +
         `Huge congrats on your ${rating || '5★'} rating${reviewsCount ? ` with ${reviewsCount}` : ''} on Google Maps!\n\n` +
-        `I noticed your business uses social media pages on Google rather than a dedicated online booking website, which makes it harder for mobile searchers to request instant quotes.\n\n` +
+        `I noticed your business uses social media pages rather than a dedicated online booking website, which makes it harder for mobile searchers on Google Maps to request instant estimates.\n\n` +
         `I created a quick 60-second mockup of a streamlined booking site designed specifically for ${businessName}. Open to seeing it?`,
       keyHooksUsed: ['Social media only / No dedicated booking site'],
     };

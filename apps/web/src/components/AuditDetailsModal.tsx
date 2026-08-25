@@ -20,7 +20,6 @@ import {
   ExternalLink,
   RotateCw,
   Share2,
-  Link2Off,
 } from 'lucide-react';
 
 interface AuditDetailsModalProps {
@@ -44,7 +43,6 @@ export function AuditDetailsModal({
 
   const audit = lead.audit_data;
   const socials = lead.socials || audit?.socials;
-  const isUnlinkedGmb = Boolean(lead.unlinked_gmb_website);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
@@ -76,13 +74,16 @@ export function AuditDetailsModal({
                 </a>
 
                 {/* Social icons in header */}
-                {socials && (socials.facebook || socials.instagram || socials.linkedin || socials.twitter || socials.youtube || socials.tiktok) && (
+                {socials && (socials.facebook || socials.instagram || socials.tiktok || socials.linkedin || socials.twitter || socials.youtube) && (
                   <div className="flex items-center gap-1.5 pl-2 border-l border-slate-800">
                     {socials.facebook && (
                       <a href={socials.facebook} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-blue-400 hover:text-blue-300">fb</a>
                     )}
                     {socials.instagram && (
                       <a href={socials.instagram} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-pink-400 hover:text-pink-300">ig</a>
+                    )}
+                    {socials.tiktok && (
+                      <a href={socials.tiktok} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-teal-300 hover:text-teal-200">tt</a>
                     )}
                     {socials.linkedin && (
                       <a href={socials.linkedin} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-sky-400 hover:text-sky-300">in</a>
@@ -105,19 +106,6 @@ export function AuditDetailsModal({
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* GMB Unlinked Alert Banner */}
-          {isUnlinkedGmb && (
-            <div className="p-4 rounded-xl bg-sky-950/40 border border-sky-500/30 flex items-start gap-3 text-xs text-sky-200 animate-in fade-in">
-              <Link2Off className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
-              <div>
-                <strong className="text-white block mb-0.5">High Conversion Finding: Website Discovered via Web Results</strong>
-                <span>
-                  This business has an active website ({lead.website_url}), but it is <strong>NOT linked</strong> to their Google Maps profile. Potential clients have no "Website" button on their listing, leaking local search leads directly to competitors!
-                </span>
-              </div>
-            </div>
-          )}
-
           {!audit ? (
             <div className="py-12 text-center">
               <AlertCircle className="w-12 h-12 text-amber-400 mx-auto mb-3 opacity-80" />
@@ -286,7 +274,7 @@ export function AuditDetailsModal({
                       <Share2 className="w-3.5 h-3.5 text-pink-400" />
                       <span>Social Media Presence</span>
                     </h3>
-                    {socials && (socials.facebook || socials.instagram || socials.linkedin || socials.twitter || socials.youtube || socials.tiktok) ? (
+                    {socials && (socials.facebook || socials.instagram || socials.tiktok || socials.linkedin || socials.twitter || socials.youtube) ? (
                       <div className="flex flex-wrap gap-2">
                         {socials.facebook && (
                           <a href={socials.facebook} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-600/10 text-blue-400 border border-blue-500/20 hover:bg-blue-600/20 flex items-center gap-1.5">
@@ -297,6 +285,12 @@ export function AuditDetailsModal({
                         {socials.instagram && (
                           <a href={socials.instagram} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-600/10 text-pink-400 border border-pink-500/20 hover:bg-pink-600/20 flex items-center gap-1.5">
                             <span>Instagram</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                        {socials.tiktok && (
+                          <a href={socials.tiktok} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-md text-xs font-medium bg-teal-600/10 text-teal-300 border border-teal-500/20 hover:bg-teal-600/20 flex items-center gap-1.5">
+                            <span>TikTok</span>
                             <ExternalLink className="w-3 h-3" />
                           </a>
                         )}

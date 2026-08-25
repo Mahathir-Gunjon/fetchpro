@@ -14,10 +14,10 @@ import {
   Sparkles,
   Phone,
   Flame,
-  Link2Off,
   CheckSquare,
   Square,
   Globe,
+  Share2,
 } from 'lucide-react';
 
 interface LeadsTableProps {
@@ -25,11 +25,14 @@ interface LeadsTableProps {
   onOpenAudit: (lead: Lead) => void;
   onOpenPitchEditor: (lead: Lead) => void;
   onRunAudit: (leadId: string) => void;
+  onRunBatchAudit?: (leadIds: string[]) => void;
   onDeleteLead: (leadId: string) => void;
   onDeleteMultipleLeads?: (leadIds: string[]) => void;
   onExportCsv: () => void;
   onAddLead: () => void;
   auditingId: string | null;
+  auditingIds?: Set<string>;
+  isBatchAuditing?: boolean;
   activeTab?: DashboardViewTab;
   onTabChange?: (tab: DashboardViewTab) => void;
 }
@@ -39,11 +42,14 @@ export function LeadsTable({
   onOpenAudit,
   onOpenPitchEditor,
   onRunAudit,
+  onRunBatchAudit,
   onDeleteLead,
   onDeleteMultipleLeads,
   onExportCsv,
   onAddLead,
   auditingId,
+  auditingIds = new Set(),
+  isBatchAuditing = false,
   activeTab = 'all',
   onTabChange,
 }: LeadsTableProps) {
@@ -55,7 +61,6 @@ export function LeadsTable({
     return leads.filter((lead) => {
       // 1. Tab filter
       if (activeTab === 'audited' && lead.status !== 'audited' && lead.status !== 'emailed') return false;
-      if (activeTab === 'unlinked' && !lead.unlinked_gmb_website) return false;
       if (activeTab === 'nowebsite' && !!lead.website_url) return false;
       if (activeTab === 'emailed' && lead.status !== 'emailed') return false;
       if (activeTab === 'critical' && (lead.audit_data?.healthScore === undefined || lead.audit_data.healthScore >= 50)) return false;
@@ -107,19 +112,26 @@ export function LeadsTable({
     }
   };
 
-  const handleBulkAudit = () => {
-    const eligible = filteredLeads.filter((l) => selectedIds.has(l.id) && !!l.website_url);
-    if (eligible.length === 0) {
+  const handleBulkAuditClick = () => {
+    const eligibleIds = filteredLeads
+      .filter((l) => selectedIds.has(l.id) && !!l.website_url)
+      .map((l) => l.id);
+
+    if (eligibleIds.length === 0) {
       alert('None of the selected leads have website URLs to audit.');
       return;
     }
-    eligible.forEach((l) => onRunAudit(l.id));
+
+    if (onRunBatchAudit) {
+      onRunBatchAudit(eligibleIds);
+    } else {
+      eligibleIds.forEach((id) => onRunAudit(id));
+    }
   };
 
   const tabLabels: { id: DashboardViewTab; label: string; count: number }[] = [
     { id: 'all', label: 'All Leads', count: leads.length },
     { id: 'audited', label: 'Audited Sites', count: leads.filter((l) => l.status === 'audited' || l.status === 'emailed').length },
-    { id: 'unlinked', label: '⚡ GMB Unlinked', count: leads.filter((l) => Boolean(l.unlinked_gmb_website)).length },
     { id: 'nowebsite', label: 'No Website (Hot)', count: leads.filter((l) => !l.website_url).length },
     { id: 'emailed', label: 'Outreach Sent', count: leads.filter((l) => l.status === 'emailed').length },
     { id: 'critical', label: 'Score < 50', count: leads.filter((l) => l.audit_data?.healthScore !== undefined && l.audit_data.healthScore < 50).length },
@@ -129,7 +141,7 @@ export function LeadsTable({
     <div className="space-y-4">
       {/* Top Filter Bar & Search */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800/80">
-        {/* Filter Pills */}
+        {/* Filter Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
           {tabLabels.map((tab) => (
             <button
@@ -164,23 +176,26 @@ export function LeadsTable({
         </div>
       </div>
 
-      {/* Bulk Action Banner if rows selected */}
+      {/* Bulk Action Toolbar if rows selected */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center justify-between px-4 py-2.5 bg-blue-950/70 border border-blue-500/40 rounded-xl animate-in fade-in slide-in-from-top-1 text-xs">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-blue-950/80 border border-blue-500/40 rounded-xl animate-in fade-in slide-in-from-top-1 text-xs shadow-lg">
           <div className="flex items-center gap-2 text-blue-200 font-semibold">
             <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
             <span>{selectedIds.size} lead(s) selected</span>
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={handleBulkAudit}
-              className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg transition-colors"
+              onClick={handleBulkAuditClick}
+              disabled={isBatchAuditing}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold rounded-lg transition-colors shadow-md"
             >
-              Run Audit
+              <RotateCw className={`w-3.5 h-3.5 ${isBatchAuditing ? 'animate-spin' : ''}`} />
+              <span>{isBatchAuditing ? 'Auditing Selected...' : 'Run Audit on Selected'}</span>
             </button>
             <button
               onClick={handleBulkDelete}
-              className="flex items-center gap-1.5 px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white font-medium rounded-lg transition-colors"
+              disabled={isBatchAuditing}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-lg transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>Delete Selected</span>
@@ -227,8 +242,8 @@ export function LeadsTable({
                       <h3 className="text-sm font-bold text-white">No leads in this view</h3>
                       <p className="text-xs text-slate-400">
                         {searchQuery
-                          ? `No leads matched "${searchQuery}". Try a different term.`
-                          : 'Extract leads from Google Maps using FetchPro Chrome extension or click Add Lead.'}
+                          ? `No leads matched "${searchQuery}". Try another search.`
+                          : 'Scrape leads from Google Maps using FetchPro Chrome extension or click Add Lead.'}
                       </p>
                       <button
                         onClick={onAddLead}
@@ -242,9 +257,8 @@ export function LeadsTable({
               ) : (
                 filteredLeads.map((lead) => {
                   const isSelected = selectedIds.has(lead.id);
-                  const isAuditing = auditingId === lead.id;
+                  const isAuditing = auditingId === lead.id || auditingIds.has(lead.id);
                   const hasNoWebsite = !lead.website_url;
-                  const isUnlinkedGmb = Boolean(lead.unlinked_gmb_website);
                   const socials = lead.socials || lead.audit_data?.socials;
 
                   return (
@@ -320,10 +334,10 @@ export function LeadsTable({
                         </div>
                       </td>
 
-                      {/* Social Media Profiles */}
+                      {/* Social Media Profiles (FB, IG, TikTok, LinkedIn, 𝕏, YouTube) */}
                       <td className="py-3.5 px-4">
-                        {socials && (socials.facebook || socials.instagram || socials.linkedin || socials.twitter || socials.youtube || socials.tiktok) ? (
-                          <div className="flex items-center gap-1.5">
+                        {socials && (socials.facebook || socials.instagram || socials.tiktok || socials.linkedin || socials.twitter || socials.youtube) ? (
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             {socials.facebook && (
                               <a
                                 href={socials.facebook}
@@ -344,6 +358,17 @@ export function LeadsTable({
                                 title="Instagram Profile"
                               >
                                 ig
+                              </a>
+                            )}
+                            {socials.tiktok && (
+                              <a
+                                href={socials.tiktok}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="w-6 h-6 rounded-lg bg-teal-600/20 hover:bg-teal-600/40 text-teal-300 flex items-center justify-center font-bold text-[10px] transition-colors"
+                                title="TikTok Profile"
+                              >
+                                tt
                               </a>
                             )}
                             {socials.linkedin && (
@@ -370,7 +395,7 @@ export function LeadsTable({
                             )}
                           </div>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-slate-400 italic">No social found</span>
                         )}
                       </td>
 
@@ -379,7 +404,7 @@ export function LeadsTable({
                         {hasNoWebsite ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20">
                             <Flame className="w-3 h-3 text-amber-400" />
-                            <span>Needs New Website</span>
+                            <span>Needs Website</span>
                           </span>
                         ) : (
                           <div className="flex items-center gap-3">
@@ -388,24 +413,21 @@ export function LeadsTable({
                               onClick={() => onOpenAudit(lead)}
                             />
                             <div className="flex flex-col gap-0.5 truncate max-w-[170px]">
-                              <div className="flex items-center gap-1.5">
-                                <a
-                                  href={lead.website_url!}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-slate-300 hover:text-blue-400 underline decoration-slate-700 truncate font-mono text-[11px]"
-                                >
-                                  {lead.website_url!.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
-                                </a>
-                              </div>
-                              {isUnlinkedGmb ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-400 bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20" title="Found in Web Results, but not connected to primary Google Maps listing!">
-                                  <Link2Off className="w-2.5 h-2.5" />
-                                  <span>GMB Unlinked</span>
-                                </span>
-                              ) : lead.audit_data?.ssl ? (
+                              <a
+                                href={lead.website_url!}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-slate-300 hover:text-blue-400 underline decoration-slate-700 truncate font-mono text-[11px]"
+                              >
+                                {lead.website_url!.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
+                              </a>
+                              {lead.audit_data?.ssl ? (
                                 <span className={`text-[10px] font-semibold ${lead.audit_data.ssl.valid ? 'text-emerald-400' : 'text-rose-400'}`}>
                                   {lead.audit_data.ssl.valid ? '✓ SSL Active' : '✗ No SSL'}
+                                </span>
+                              ) : isAuditing ? (
+                                <span className="text-[10px] text-indigo-400 font-semibold animate-pulse">
+                                  Auditing...
                                 </span>
                               ) : null}
                             </div>
@@ -453,7 +475,7 @@ export function LeadsTable({
                             </button>
                           ) : null}
 
-                          {/* AI Pitch / Outreach Button */}
+                          {/* AI Pitch Button */}
                           <button
                             onClick={() => onOpenPitchEditor(lead)}
                             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 transition-colors"

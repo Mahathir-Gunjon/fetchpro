@@ -27,13 +27,14 @@ export default function DashboardPage() {
     emailsSent: 0,
     leadsWithWebsites: 0,
     leadsWithoutWebsites: 0,
-    leadsWithUnlinkedWebsites: 0,
     leadsWithPhones: 0,
   });
 
   const [isLoading, setIsLoading] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
   const [auditingId, setAuditingId] = useState<string | null>(null);
+  const [auditingIds, setAuditingIds] = useState<Set<string>>(new Set());
+  const [isBatchAuditing, setIsBatchAuditing] = useState(false);
 
   // Modals state
   const [selectedAuditLead, setSelectedAuditLead] = useState<Lead | null>(null);
@@ -82,7 +83,6 @@ export default function DashboardPage() {
     const emailsSent = leadList.filter((l) => l.status === 'emailed').length;
     const leadsWithWebsites = leadList.filter((l) => !!l.website_url).length;
     const leadsWithoutWebsites = leadList.filter((l) => !l.website_url).length;
-    const leadsWithUnlinkedWebsites = leadList.filter((l) => Boolean(l.unlinked_gmb_website)).length;
     const leadsWithPhones = leadList.filter((l) => !!l.phone).length;
 
     const scored = leadList.filter((l) => l.audit_data?.healthScore !== undefined);
@@ -97,7 +97,6 @@ export default function DashboardPage() {
       emailsSent,
       leadsWithWebsites,
       leadsWithoutWebsites,
-      leadsWithUnlinkedWebsites,
       leadsWithPhones,
     };
   };
@@ -180,7 +179,7 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [fetchDashboardData]);
 
-  // Run Website Audit
+  // Run Individual Website Audit
   const handleRunAudit = async (leadId: string) => {
     const targetLead = leads.find((l) => l.id === leadId);
     if (!targetLead || !targetLead.website_url) {
@@ -198,8 +197,16 @@ export default function DashboardPage() {
 
       const data = await res.json();
       if (data.success && data.lead) {
-        const updated = leads.map((l) => (l.id === leadId ? data.lead : l));
-        persistLeads(updated);
+        setLeads((prev) => {
+          const updated = prev.map((l) => (l.id === leadId ? data.lead : l));
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('leadflow_persisted_leads', JSON.stringify(updated));
+            } catch (e) {}
+          }
+          setStats(calculateStats(updated));
+          return updated;
+        });
 
         if (selectedAuditLead?.id === leadId) {
           setSelectedAuditLead(data.lead);
@@ -216,6 +223,55 @@ export default function DashboardPage() {
       addToast('error', 'Audit Failed', err.message || 'Could not reach target website.');
     } finally {
       setAuditingId(null);
+    }
+  };
+
+  // Run Batch Audit on Multiple Selected Leads
+  const handleRunBatchAudit = async (leadIds: string[]) => {
+    if (!leadIds || leadIds.length === 0) return;
+
+    setIsBatchAuditing(true);
+    const idSet = new Set(leadIds);
+    setAuditingIds(idSet);
+
+    addToast('info', 'Batch Audit Started', `Auditing ${leadIds.length} website(s)...`);
+
+    try {
+      const res = await fetch('/api/leads/batch-audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadIds }),
+      });
+
+      const data = await res.json();
+      if (data.success && Array.isArray(data.leads)) {
+        const returnedMap = new Map<string, Lead>();
+        data.leads.forEach((l: Lead) => returnedMap.set(l.id, l));
+
+        setLeads((prev) => {
+          const updated = prev.map((l) => (returnedMap.has(l.id) ? returnedMap.get(l.id)! : l));
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('leadflow_persisted_leads', JSON.stringify(updated));
+            } catch (e) {}
+          }
+          setStats(calculateStats(updated));
+          return updated;
+        });
+
+        addToast(
+          'success',
+          'Batch Audit Finished',
+          `Successfully audited ${data.auditedCount} websites!`
+        );
+      } else {
+        throw new Error(data.error || 'Batch audit failed');
+      }
+    } catch (err: any) {
+      addToast('error', 'Batch Audit Notice', err.message || 'Failed to complete batch audit.');
+    } finally {
+      setIsBatchAuditing(false);
+      setAuditingIds(new Set());
     }
   };
 
@@ -316,10 +372,6 @@ export default function DashboardPage() {
       const updated = [newLead, ...leads];
       persistLeads(updated);
       addToast('success', 'Lead Added', `Added ${leadInput.business_name} to pipeline.`);
-
-      if (leadInput.website_url) {
-        handleRunAudit(newLead.id);
-      }
     } catch (err: any) {
       addToast('error', 'Error adding lead', err.message);
     }
@@ -425,7 +477,7 @@ export default function DashboardPage() {
                 <span>FetchPro Lead Pipeline & Website Audits</span>
               </h1>
               <p className="text-xs text-slate-400 mt-1">
-                Filter target prospects, run high-speed website audits, inspect social links, and dispatch AI pitches.
+                Filter prospects, inspect social profiles (FB, IG, TikTok), audit websites on demand, and dispatch high-converting cold pitches.
               </p>
             </div>
 
@@ -458,11 +510,14 @@ export default function DashboardPage() {
             onOpenAudit={(lead) => setSelectedAuditLead(lead)}
             onOpenPitchEditor={(lead) => setSelectedPitchLead(lead)}
             onRunAudit={handleRunAudit}
+            onRunBatchAudit={handleRunBatchAudit}
             onDeleteLead={handleDeleteLead}
             onDeleteMultipleLeads={handleDeleteMultipleLeads}
             onExportCsv={handleExportCsv}
             onAddLead={() => setIsAddLeadOpen(true)}
             auditingId={auditingId}
+            auditingIds={auditingIds}
+            isBatchAuditing={isBatchAuditing}
             activeTab={activeTab}
             onTabChange={setActiveTab}
           />
