@@ -1,6 +1,6 @@
 /**
  * FetchPro - Popup Script
- * Manifest V3 Resilient Engine & Vercel Auto-Detection
+ * Manifest V3 Resilient Engine & Target Enforcement
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -80,6 +80,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderLeads(extractedLeads);
   }
 
+  // Save selected target limit when dropdown changes
+  maxLeadsSelect.addEventListener('change', async () => {
+    const maxLeads = parseInt(maxLeadsSelect.value, 10) || 15;
+    await chrome.storage.local.set({ leadflow_max_leads: maxLeads });
+  });
+
   // Quick toggle config
   btnToggleConfigQuick.addEventListener('click', () => {
     configAccordion.open = !configAccordion.open;
@@ -112,10 +118,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       const response = await chrome.tabs.sendMessage(currentTab.id, { type: 'PING' });
       if (response) {
         if (response.isScraping) setScrapingState(true);
-        const extractRes = await chrome.tabs.sendMessage(currentTab.id, { type: 'EXTRACT_NOW' });
-        if (extractRes && extractRes.leads && extractRes.leads.length > 0) {
-          renderLeads(extractRes.leads);
-        }
       }
     } catch (err) {
       try {
@@ -123,14 +125,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           target: { tabId: currentTab.id },
           files: ['content.js'],
         });
-        setTimeout(async () => {
-          try {
-            const extractRes = await chrome.tabs.sendMessage(currentTab.id, { type: 'EXTRACT_NOW' });
-            if (extractRes && extractRes.leads) {
-              renderLeads(extractRes.leads);
-            }
-          } catch (e) {}
-        }, 500);
       } catch (injErr) {}
     }
   } else {
@@ -159,7 +153,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <line x1="12" y1="8" x2="12" y2="12"></line>
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
           </svg>
-          <p class="text-xs text-slate-400">Search Google Maps and click Start Deep Harvester.</p>
+          <p class="text-xs text-slate-400">Select target and click Start Deep Harvester.</p>
         </div>
       `;
       return;
@@ -172,6 +166,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       .forEach((lead) => {
         const item = document.createElement('div');
         item.className = 'lead-item';
+        const socials = lead.social_profiles || lead.socials || {};
         item.innerHTML = `
         <div style="flex:1; overflow:hidden;">
           <div class="lead-name" title="${escapeHtml(lead.business_name)}">${escapeHtml(lead.business_name)}</div>
@@ -187,8 +182,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 : `<span class="lead-badge lead-badge-noweb">🔥 No Web</span>`
             }
             ${
-              lead.social_profiles?.facebook || lead.socials?.facebook
-                ? `<span class="lead-badge" style="background:rgba(24,119,242,0.2); color:#60a5fa;">FB</span>`
+              socials.facebook
+                ? `<span class="lead-badge" style="background:rgba(24,119,242,0.2); color:#60a5fa; font-weight:700;">FB</span>`
+                : ''
+            }
+            ${
+              socials.instagram
+                ? `<span class="lead-badge" style="background:rgba(225,48,108,0.2); color:#f472b6; font-weight:700;">IG</span>`
                 : ''
             }
             ${
@@ -256,8 +256,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!currentTab || !currentTab.id) return;
 
     if (!isScraping) {
-      const maxLeads = parseInt(maxLeadsSelect.value, 10) || 100;
+      const maxLeads = parseInt(maxLeadsSelect.value, 10) || 15;
       setScrapingState(true);
+
+      // Reset preview list for fresh harvest
+      extractedLeads = [];
+      renderLeads([]);
+
       try {
         await chrome.tabs.sendMessage(currentTab.id, {
           type: 'START_SCRAPING',
@@ -292,7 +297,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Clear leads
+  // Clear leads buffer
   btnClear.addEventListener('click', async () => {
     if (confirm('Clear all scraped leads from extension buffer?')) {
       extractedLeads = [];
@@ -301,7 +306,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         chrome.tabs.sendMessage(currentTab.id, { type: 'CLEAR_LEADS' }).catch(() => {});
       }
       renderLeads([]);
-      showFeedback('Leads buffer cleared.', true);
+      showFeedback('Leads buffer cleared to 0.', true);
     }
   });
 
@@ -449,7 +454,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       statTotal.textContent = message.count;
       if (liveInspectBanner) {
         liveInspectBanner.classList.remove('hidden');
-        if (liveInspectCount) liveInspectCount.textContent = `${message.count} / ${message.maxLeads || 100}`;
+        if (liveInspectCount) liveInspectCount.textContent = `${message.count} / ${message.maxLeads || 15}`;
         if (message.latestLead) {
           if (liveInspectName) liveInspectName.textContent = message.latestLead.business_name || 'Inspecting card...';
           if (liveInspectMeta) {
@@ -472,7 +477,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (message.type === 'SCRAPE_COMPLETED') {
       setScrapingState(false);
       renderLeads(message.leads);
-      showFeedback(`Extracted ${message.count} leads! Ready to sync.`, true);
+      showFeedback(`Harvested exactly ${message.count} leads! Ready to sync.`, true);
     }
   });
 });

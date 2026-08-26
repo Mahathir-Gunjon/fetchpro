@@ -2,8 +2,8 @@
  * FetchPro - High-Precision Google Maps 2-Tier Lead & Web Results Scraper
  *
  * Implements:
- * 1. Safe context guard & lastError handlers (eliminates all Chrome error logs)
- * 2. Deep multi-step scroll to force dynamic "Web results" rendering
+ * 1. Strict Target Limit enforcement (e.g. 15 leads means exactly 15 leads)
+ * 2. Reliable 4-step auto-scroll for dynamic "Web results" rendering
  * 3. 2-Tier Link & Social Media Harvester:
  *    - Tier 1: Official GMB Action Website Button
  *    - Tier 2: Deep "Web results" List & Social Card Extractor (Facebook, Instagram, X/Twitter, LinkedIn, Yelp, TikTok, etc.)
@@ -11,12 +11,12 @@
  */
 
 (function () {
-  console.log('[FetchPro] Harvester script loaded on:', window.location.href);
+  console.log('[FetchPro] Harvester script active on:', window.location.href);
 
   let isScraping = false;
   let scrapedLeads = [];
   let seenIdentifiers = new Set();
-  let maxLeadsTarget = 100;
+  let maxLeadsTarget = 15;
   let floatingBanner = null;
 
   /**
@@ -26,7 +26,7 @@
     if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage?.local) {
       try {
         chrome.storage.local.set(data, () => {
-          if (chrome.runtime.lastError) {
+          if (chrome.runtime?.lastError) {
             // Silently handled
           }
         });
@@ -41,7 +41,7 @@
     if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.runtime?.sendMessage) {
       try {
         chrome.runtime.sendMessage(msg, () => {
-          if (chrome.runtime.lastError) {
+          if (chrome.runtime?.lastError) {
             // Silently handle disconnected port when popup is closed
           }
         });
@@ -164,9 +164,9 @@
     for (let step = 1; step <= 4; step++) {
       for (const pane of panes) {
         try {
-          const targetScroll = Math.min(pane.scrollHeight, step * 650);
+          const targetScroll = Math.min(pane.scrollHeight, step * 700);
           pane.scrollTop = targetScroll;
-          pane.dispatchEvent(new WheelEvent('wheel', { deltaY: 650, bubbles: true }));
+          pane.dispatchEvent(new WheelEvent('wheel', { deltaY: 700, bubbles: true }));
           pane.dispatchEvent(new Event('scroll', { bubbles: true }));
         } catch (e) {}
       }
@@ -177,23 +177,21 @@
     for (const pane of panes) {
       try {
         pane.scrollTop = pane.scrollHeight;
-        pane.dispatchEvent(new WheelEvent('wheel', { deltaY: 1000, bubbles: true }));
+        pane.dispatchEvent(new WheelEvent('wheel', { deltaY: 1200, bubbles: true }));
         pane.dispatchEvent(new Event('scroll', { bubbles: true }));
       } catch (e) {}
     }
 
-    // Generous wait for Google Maps to resolve Web results APIs and mount DOM cards
-    await new Promise((res) => setTimeout(res, 750));
+    // Wait for Google Maps to resolve Web results APIs and mount DOM cards
+    await new Promise((res) => setTimeout(res, 850));
   }
 
   /**
    * 2. Extract official GMB Button AND Web Results links (2-Tier Extraction)
    */
   function extractAllBusinessLinks() {
-    const root = document.querySelector('div[role="main"]') || document.querySelector('div[tabindex="-1"]') || document;
-
-    // Tier 1: Official Top Action Website Button
-    const officialWebsiteBtn = root.querySelector(
+    // Tier 1: Check official Top Action Website Button
+    const officialWebsiteBtn = document.querySelector(
       'a[data-item-id="authority"], a[aria-label*="Website"], a[aria-label*="website"], a[data-tooltip*="website"]'
     );
     let primaryWebsite = null;
@@ -205,18 +203,9 @@
       }
     }
 
-    // Tier 2: Extract ALL links from the active pane & whole document
-    const allAnchors = Array.from(root.querySelectorAll('a[href]'));
-
-    // Also include any links from dedicated Web Results containers
-    const webResultElements = document.querySelectorAll(
-      '[aria-label*="Web results"], div.fontBodyMedium, div.m6QErb, div.k7A2pe'
-    );
-    webResultElements.forEach((el) => {
-      el.querySelectorAll('a[href]').forEach((a) => {
-        if (!allAnchors.includes(a)) allAnchors.push(a);
-      });
-    });
+    // Tier 2: Extract ALL links across the document excluding feed cards
+    const feedAnchors = new Set(Array.from(document.querySelectorAll('div[role="feed"] a, a.hfpxzc')));
+    const allAnchors = Array.from(document.querySelectorAll('a[href]')).filter((a) => !feedAnchors.has(a));
 
     const socialProfiles = {
       facebook: null,
@@ -352,7 +341,7 @@
         </div>
         <div style="height:14px; width:1px; background:rgba(255,255,255,0.2);"></div>
         <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-          <span>${statusText}: <span style="font-weight:700; color:#38bdf8;">${count}</span> leads</span>
+          <span>${statusText}: <span style="font-weight:700; color:#38bdf8;">${count} / ${maxLeadsTarget}</span></span>
           ${activeName ? `<div style="font-size:11px; color:#94a3b8; overflow:hidden; text-overflow:ellipsis;">👉 ${activeName}</div>` : ''}
         </div>
       `;
@@ -364,6 +353,8 @@
    */
   async function deepInspectActiveProfile() {
     try {
+      if (scrapedLeads.length >= maxLeadsTarget) return 0;
+
       // 1. Scroll active detail container to absolute bottom and wait for Web results
       await ensureWebResultsRendered();
 
@@ -485,6 +476,8 @@
         return 0;
       }
 
+      if (scrapedLeads.length >= maxLeadsTarget) return 0;
+
       seenIdentifiers.add(currentMapsUrl);
       seenIdentifiers.add(businessName.toLowerCase());
       scrapedLeads.push(lead);
@@ -496,108 +489,6 @@
   }
 
   /**
-   * Fast Feed Extractor
-   */
-  function extractFeedCards() {
-    let count = 0;
-    try {
-      const placeLinks = document.querySelectorAll(
-        'a.hfpxzc, a[href*="/maps/place/"], div.Nv2PK, div.qBF1Pd, div.fontHeadlineSmall, div[role="article"]'
-      );
-
-      placeLinks.forEach((el) => {
-        const card =
-          el.closest('div.Nv2PK') ||
-          el.closest('div[role="article"]') ||
-          el.closest('div.THOPZb') ||
-          el.parentElement;
-        if (!card) return;
-
-        let businessName = '';
-        const nameEl = card.querySelector('.qBF1Pd, .fontHeadlineSmall, h2, [class*="headline"], div[aria-label]');
-        if (nameEl) {
-          businessName = cleanText(nameEl.innerText || nameEl.getAttribute('aria-label') || '');
-        }
-
-        if (!businessName) {
-          const linkEl = card.querySelector('a.hfpxzc, a[href*="/maps/place/"]');
-          if (linkEl) {
-            businessName = cleanText(linkEl.getAttribute('aria-label') || linkEl.innerText || '');
-          }
-        }
-
-        if (!businessName || businessName.length < 2 || businessName.includes('Search this area')) return;
-
-        let mapsUrl = '';
-        const anchor = card.querySelector('a.hfpxzc, a[href*="/maps/place/"], a[href*="google.com/maps"]');
-        if (anchor && anchor.href) {
-          mapsUrl = anchor.href;
-        }
-
-        const identifier = mapsUrl || businessName.toLowerCase();
-        if (seenIdentifiers.has(identifier)) return;
-
-        let rating = 0;
-        let reviewsCount = 0;
-        const allCardText = card.innerText || '';
-
-        const ratingEl = card.querySelector('span.MW4etd, span[aria-label*="stars"], span[aria-label*="star"]');
-        if (ratingEl) {
-          const rText = ratingEl.innerText || ratingEl.getAttribute('aria-label') || '';
-          const m = rText.match(/([0-5]\.[0-9]|[0-5])/);
-          if (m) rating = parseFloat(m[1]);
-        }
-
-        const revEl = card.querySelector('span.UY7F9, span[aria-label*="reviews"], span[aria-label*="review"]');
-        if (revEl) {
-          const m = (revEl.innerText || revEl.getAttribute('aria-label') || '').match(/\(?([0-9,]+)\)?/);
-          if (m) reviewsCount = parseInt(m[1].replace(/,/g, ''), 10);
-        }
-
-        let websiteUrl = '';
-        const webLink = card.querySelector(
-          'a[data-value="Website"], a[aria-label*="Website"], a[aria-label*="website"], a.lcr4fd'
-        );
-        if (webLink && webLink.href) {
-          websiteUrl = unmaskAndCleanUrl(webLink.href);
-        }
-
-        let phone = '';
-        const phoneMatch = allCardText.match(/(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}/);
-        if (phoneMatch) {
-          phone = cleanText(phoneMatch[0]);
-        }
-
-        const lead = {
-          id: 'ext_' + Date.now() + '_' + Math.random().toString(36).substr(2, 7),
-          business_name: businessName,
-          phone: phone || null,
-          rating: rating || 0,
-          reviews_count: reviewsCount || 0,
-          status: 'Open',
-          maps_url: mapsUrl || window.location.href,
-          gmb_website_url: websiteUrl || null,
-          website_url: websiteUrl || null,
-          discovered_website: null,
-          website_source: websiteUrl ? 'GMB_BUTTON' : 'NONE',
-          web_results_links: null,
-          social_profiles: null,
-          socials: null,
-          email: null,
-          scraped_at: new Date().toISOString(),
-        };
-
-        seenIdentifiers.add(identifier);
-        seenIdentifiers.add(businessName.toLowerCase());
-        scrapedLeads.push(lead);
-        count++;
-      });
-    } catch (e) {}
-
-    return count;
-  }
-
-  /**
    * Main Scraping Loop
    */
   async function runScrapeLoop() {
@@ -605,16 +496,11 @@
     let processedCards = 0;
     let consecutiveNoNew = 0;
 
-    console.log('[FetchPro] Starting GMB Deep Inspection loop with Web results Harvester...');
+    console.log(`[FetchPro] Starting GMB Deep Inspection loop for exactly ${maxLeadsTarget} leads...`);
     updateFloatingHUD('Starting Deep Crawl...', scrapedLeads.length, true);
 
     while (isScraping && scrapedLeads.length < maxLeadsTarget) {
       const cards = Array.from(document.querySelectorAll('a.hfpxzc, div.Nv2PK a[href*="/maps/place/"]'));
-
-      if (cards.length === 0) {
-        extractFeedCards();
-        await deepInspectActiveProfile();
-      }
 
       // Iterate through visible cards
       for (let i = processedCards; i < cards.length && isScraping; i++) {
@@ -645,10 +531,17 @@
             latestLead: latest || null,
             leads: scrapedLeads,
           });
+
+          if (scrapedLeads.length >= maxLeadsTarget) {
+            console.log(`[FetchPro] Reached target limit of ${maxLeadsTarget} leads.`);
+            break;
+          }
         } catch (cardErr) {
           console.warn('[FetchPro] Card crawl error:', cardErr);
         }
       }
+
+      if (scrapedLeads.length >= maxLeadsTarget) break;
 
       // Scroll results feed
       if (feedContainer && feedContainer !== document.body) {
@@ -662,14 +555,14 @@
 
       await new Promise((r) => setTimeout(r, 1200));
 
-      const newlyFound = extractFeedCards();
-      if (newlyFound === 0 && processedCards >= cards.length) {
+      const freshCards = Array.from(document.querySelectorAll('a.hfpxzc, div.Nv2PK a[href*="/maps/place/"]'));
+      if (freshCards.length <= processedCards) {
         consecutiveNoNew++;
       } else {
         consecutiveNoNew = 0;
       }
 
-      if (consecutiveNoNew >= 12) {
+      if (consecutiveNoNew >= 10) {
         console.log('[FetchPro] Reached end of Google Maps feed.');
         break;
       }
@@ -702,7 +595,6 @@
     }
 
     if (message.type === 'EXTRACT_NOW') {
-      extractFeedCards();
       deepInspectActiveProfile()
         .then(() => {
           safeSetStorage({ leadflow_leads: scrapedLeads });
@@ -721,8 +613,14 @@
         return false;
       }
 
+      maxLeadsTarget = parseInt(message.maxLeads, 10) || 15;
+
+      // Always start fresh for a new target harvest
+      scrapedLeads = [];
+      seenIdentifiers.clear();
+      safeSetStorage({ leadflow_leads: [] });
+
       isScraping = true;
-      maxLeadsTarget = message.maxLeads || 100;
 
       runScrapeLoop().catch((err) => {
         console.error('[FetchPro] Scrape error:', err);
@@ -761,50 +659,16 @@
     return false;
   });
 
-  // Safe manual click listener (Fixes Line 672 target.closest error)
-  document.addEventListener('click', (e) => {
-    try {
-      const target = e.target;
-      if (target && target instanceof Element && typeof target.closest === 'function') {
-        if (
-          target.closest('a.hfpxzc') ||
-          target.closest('div.Nv2PK') ||
-          target.closest('[role="article"]')
-        ) {
-          setTimeout(() => {
-            deepInspectActiveProfile().then(() => {
-              safeSetStorage({ leadflow_leads: scrapedLeads });
-            });
-          }, 1250);
-        }
-      }
-    } catch (err) {}
-  });
-
   // Restore stored leads safely
   try {
     chrome.storage?.local?.get(['leadflow_leads'], (res) => {
-      if (res && Array.isArray(res.leadflow_leads) && res.leadflow_leads.length > 0) {
+      if (res && Array.isArray(res.leadflow_leads)) {
         scrapedLeads = res.leadflow_leads;
         scrapedLeads.forEach((lead) => {
           const id = lead.maps_url || lead.business_name.toLowerCase();
           seenIdentifiers.add(id);
         });
-        updateFloatingHUD('Ready', scrapedLeads.length, false);
       }
     });
   } catch (e) {}
-
-  // Initial pass
-  setTimeout(() => {
-    try {
-      extractFeedCards();
-      deepInspectActiveProfile().then(() => {
-        if (scrapedLeads.length > 0) {
-          safeSetStorage({ leadflow_leads: scrapedLeads });
-          updateFloatingHUD('Ready', scrapedLeads.length, false);
-        }
-      });
-    } catch (e) {}
-  }, 1200);
 })();
