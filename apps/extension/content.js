@@ -2,7 +2,7 @@
  * FetchPro - High-Precision Google Maps 2-Tier Lead & Web Results Scraper
  *
  * Implements:
- * 1. Safe context guard & event delegation (Fixes Line 672 and context errors)
+ * 1. Safe context guard & lastError handlers (eliminates all Chrome error logs)
  * 2. Deep multi-step scroll to force dynamic "Web results" rendering
  * 3. 2-Tier Link & Social Media Harvester:
  *    - Tier 1: Official GMB Action Website Button
@@ -11,7 +11,7 @@
  */
 
 (function () {
-  console.log('[FetchPro] High-Precision Scraper & Web Results Harvester active on:', window.location.href);
+  console.log('[FetchPro] Harvester script loaded on:', window.location.href);
 
   let isScraping = false;
   let scrapedLeads = [];
@@ -25,15 +25,26 @@
   function safeSetStorage(data) {
     if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage?.local) {
       try {
-        chrome.storage.local.set(data).catch(() => {});
+        chrome.storage.local.set(data, () => {
+          if (chrome.runtime.lastError) {
+            // Silently handled
+          }
+        });
       } catch (e) {}
     }
   }
 
+  /**
+   * Safe message dispatcher (handles popup closed without throwing lastError)
+   */
   function safeSendMessage(msg) {
     if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.runtime?.sendMessage) {
       try {
-        chrome.runtime.sendMessage(msg).catch(() => {});
+        chrome.runtime.sendMessage(msg, () => {
+          if (chrome.runtime.lastError) {
+            // Silently handle disconnected port when popup is closed
+          }
+        });
       } catch (e) {}
     }
   }
@@ -196,7 +207,7 @@
 
     // Tier 2: Extract ALL links from the active pane & whole document
     const allAnchors = Array.from(root.querySelectorAll('a[href]'));
-    
+
     // Also include any links from dedicated Web Results containers
     const webResultElements = document.querySelectorAll(
       '[aria-label*="Web results"], div.fontBodyMedium, div.m6QErb, div.k7A2pe'
@@ -676,7 +687,7 @@
   }
 
   /**
-   * Message Listener
+   * Message Listener (Only returns true for async operations)
    */
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'PING') {
@@ -687,23 +698,27 @@
         isScraping,
         count: scrapedLeads.length,
       });
-      return true;
+      return false;
     }
 
     if (message.type === 'EXTRACT_NOW') {
       extractFeedCards();
-      deepInspectActiveProfile().then(() => {
-        safeSetStorage({ leadflow_leads: scrapedLeads });
-        updateFloatingHUD('Extracted Profile & Web results', scrapedLeads.length, false);
-        sendResponse({ status: 'OK', count: scrapedLeads.length, leads: scrapedLeads });
-      });
-      return true;
+      deepInspectActiveProfile()
+        .then(() => {
+          safeSetStorage({ leadflow_leads: scrapedLeads });
+          updateFloatingHUD('Extracted Profile & Web results', scrapedLeads.length, false);
+          sendResponse({ status: 'OK', count: scrapedLeads.length, leads: scrapedLeads });
+        })
+        .catch(() => {
+          sendResponse({ status: 'ERROR', count: scrapedLeads.length, leads: scrapedLeads });
+        });
+      return true; // Asynchronous sendResponse
     }
 
     if (message.type === 'START_SCRAPING') {
       if (isScraping) {
         sendResponse({ status: 'ALREADY_RUNNING', count: scrapedLeads.length });
-        return true;
+        return false;
       }
 
       isScraping = true;
@@ -716,19 +731,19 @@
       });
 
       sendResponse({ status: 'STARTED', maxLeads: maxLeadsTarget });
-      return true;
+      return false;
     }
 
     if (message.type === 'STOP_SCRAPING') {
       isScraping = false;
       updateFloatingHUD('Stopped', scrapedLeads.length, false);
       sendResponse({ status: 'STOPPED', count: scrapedLeads.length, leads: scrapedLeads });
-      return true;
+      return false;
     }
 
     if (message.type === 'GET_LEADS') {
       sendResponse({ leads: scrapedLeads, isScraping });
-      return true;
+      return false;
     }
 
     if (message.type === 'CLEAR_LEADS') {
@@ -740,10 +755,10 @@
         floatingBanner = null;
       }
       sendResponse({ status: 'CLEARED' });
-      return true;
+      return false;
     }
 
-    return true;
+    return false;
   });
 
   // Safe manual click listener (Fixes Line 672 target.closest error)

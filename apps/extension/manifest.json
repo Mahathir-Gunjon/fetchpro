@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FetchPro - Google Maps B2B Lead Scraper",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Extract B2B leads and social profiles directly from Google Maps search results and sync them automatically to your FetchPro SaaS dashboard for instant website audits and AI outreach.",
   "permissions": [
     "storage",
@@ -16,6 +16,9 @@
     "http://127.0.0.1:*/*",
     "https://*/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_title": "FetchPro Scraper",
