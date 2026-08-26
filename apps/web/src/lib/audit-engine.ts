@@ -14,7 +14,7 @@ import { generateColdPitch } from './gemini';
 const DEFAULT_PAGESPEED_KEY = 'AIzaSyAnEbHM4CSK9ONRQVatSkbaSYenImfHsQ0';
 
 /**
- * Normalize a target URL
+ * 1. URL Normalizer
  */
 export function normalizeTargetUrl(rawUrl: string): string {
   let url = rawUrl.trim();
@@ -25,7 +25,7 @@ export function normalizeTargetUrl(rawUrl: string): string {
 }
 
 /**
- * Filter out dummy or CDN emails
+ * Filter out invalid dummy or asset emails
  */
 function isValidBusinessEmail(email: string): boolean {
   const lower = email.toLowerCase().trim();
@@ -64,7 +64,6 @@ function extractPhonesFromHtml(html: string): string[] {
     }
   }
 
-  // Also check tel: links
   const telRegex = /href=["']tel:([^"'\s?]+)["']/gi;
   let telMatch;
   while ((telMatch = telRegex.exec(html)) !== null) {
@@ -78,7 +77,7 @@ function extractPhonesFromHtml(html: string): string[] {
 }
 
 /**
- * Extract emails from HTML and mailto links
+ * Extract emails from HTML
  */
 function extractEmailsFromHtml(html: string): string[] {
   const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi;
@@ -104,7 +103,7 @@ function extractEmailsFromHtml(html: string): string[] {
 }
 
 /**
- * Crawl /contact and /about subpages for contact info
+ * Crawl /contact and /about subpages for contact details
  */
 async function crawlSubpageContacts(baseUrl: string): Promise<{ emails: string[]; phones: string[] }> {
   const subpaths = ['/contact', '/contact-us', '/about', '/about-us'];
@@ -116,8 +115,8 @@ async function crawlSubpageContacts(baseUrl: string): Promise<{ emails: string[]
     try {
       const subUrl = `${cleanBase}${path}`;
       const res = await fetch(subUrl, {
-        signal: AbortSignal.timeout(2400),
-        headers: { 'User-Agent': 'Mozilla/5.0 (FetchPro-AuditEngine/2.0)' },
+        signal: AbortSignal.timeout(2500),
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FetchProAudit/2.0)' },
       });
       if (res.ok) {
         const subHtml = await res.text();
@@ -147,6 +146,7 @@ export function extractSocialProfiles(html: string): SocialLinks {
     youtube: null,
     yelp: null,
     mapquest: null,
+    yellowpages: null,
   };
 
   const linkRegex = /href=["'](https?:\/\/[^"'\s]+)["']/gi;
@@ -181,17 +181,22 @@ export function extractSocialProfiles(html: string): SocialLinks {
 }
 
 /**
- * Fetch Google PageSpeed Insights API (Mobile Performance & Core Web Vitals)
+ * 2. PageSpeed Insights & Core Web Vitals (with Synthetic Fallback Engine)
  */
-async function fetchGooglePageSpeedAndCWV(url: string, responseTimeMs: number): Promise<PageSpeedData> {
+async function fetchGooglePageSpeedAndCWV(
+  url: string,
+  responseTimeMs: number,
+  htmlLength: number
+): Promise<PageSpeedData> {
   const apiKey = process.env.PAGESPEED_API_KEY || DEFAULT_PAGESPEED_KEY;
   const endpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(
     url
-  )}&strategy=mobile&key=${apiKey}`;
+  )}&category=PERFORMANCE&strategy=MOBILE&key=${apiKey}`;
 
+  // Attempt Google PageSpeed Insights API with 10s AbortController timeout
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     const res = await fetch(endpoint, {
       signal: controller.signal,
@@ -220,52 +225,56 @@ async function fetchGooglePageSpeedAndCWV(url: string, responseTimeMs: number): 
           lcp,
           cls,
           inp,
-          isSlow: perfScore < 50,
+          isSlow: perfScore < 55,
           webVitals,
         };
       }
     }
-  } catch (err) {}
+  } catch (err) {
+    console.warn('[PageSpeed API Fallback] Triggering synthetic performance model:', err);
+  }
 
-  // Fallback estimates based on server response latency
-  let estimatedScore = 78;
-  let estimatedFcp = '1.5 s';
-  let estimatedLcp = '2.4 s';
-  let estimatedCls = '0.05';
-  let estimatedInp = '180 ms';
+  // 3. Synthetic Fallback Engine: Calculate algorithmic performance from TTFB, latency, and DOM payload
+  let syntheticScore = 78;
+  let syntheticFcp = '1.6 s';
+  let syntheticLcp = '2.8 s';
+  let syntheticCls = '0.06';
+  let syntheticInp = '210 ms';
 
-  if (responseTimeMs > 3000) {
-    estimatedScore = 32;
-    estimatedFcp = '3.8 s';
-    estimatedLcp = '6.2 s';
-    estimatedCls = '0.28';
-    estimatedInp = '650 ms';
-  } else if (responseTimeMs > 2000) {
-    estimatedScore = 48;
-    estimatedFcp = '2.9 s';
-    estimatedLcp = '4.5 s';
-    estimatedCls = '0.18';
-    estimatedInp = '420 ms';
-  } else if (responseTimeMs > 1200) {
-    estimatedScore = 65;
-    estimatedFcp = '2.1 s';
-    estimatedLcp = '3.2 s';
-    estimatedCls = '0.09';
-    estimatedInp = '260 ms';
+  const isHeavyDom = htmlLength > 150000;
+
+  if (responseTimeMs > 3500) {
+    syntheticScore = Math.min(30, Math.max(15, Math.round(100 - (responseTimeMs / 50))));
+    syntheticFcp = '3.9 s';
+    syntheticLcp = '6.8 s';
+    syntheticCls = '0.32';
+    syntheticInp = '680 ms';
+  } else if (responseTimeMs > 2200 || isHeavyDom) {
+    syntheticScore = Math.min(48, Math.max(32, Math.round(100 - (responseTimeMs / 40))));
+    syntheticFcp = '3.1 s';
+    syntheticLcp = '5.2 s';
+    syntheticCls = '0.22';
+    syntheticInp = '460 ms';
+  } else if (responseTimeMs > 1300) {
+    syntheticScore = Math.min(65, Math.max(50, Math.round(100 - (responseTimeMs / 30))));
+    syntheticFcp = '2.2 s';
+    syntheticLcp = '3.6 s';
+    syntheticCls = '0.12';
+    syntheticInp = '280 ms';
   }
 
   return {
-    score: estimatedScore,
-    fcp: estimatedFcp,
-    lcp: estimatedLcp,
-    cls: estimatedCls,
-    inp: estimatedInp,
-    isSlow: estimatedScore < 50,
+    score: syntheticScore,
+    fcp: syntheticFcp,
+    lcp: syntheticLcp,
+    cls: syntheticCls,
+    inp: syntheticInp,
+    isSlow: syntheticScore < 55,
     webVitals: {
-      fcp: estimatedFcp,
-      lcp: estimatedLcp,
-      cls: estimatedCls,
-      inp: estimatedInp,
+      fcp: syntheticFcp,
+      lcp: syntheticLcp,
+      cls: syntheticCls,
+      inp: syntheticInp,
     },
   };
 }
@@ -327,7 +336,7 @@ function auditTechnicalSeoAndSchema(html: string): LocalSeoData {
 }
 
 /**
- * Check UI/UX Signals & Call-to-Action (CTA) presence
+ * Call-To-Action (CTA) Audit
  */
 function auditCtaAndUx(html: string): CtaCheckData {
   const ctaLabels: string[] = [];
@@ -392,7 +401,7 @@ export async function auditWebsiteServerSide(
   // 1. Fetch website HTML
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4500);
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     const response = await fetch(cleanUrl, {
       signal: controller.signal,
@@ -426,13 +435,13 @@ export async function auditWebsiteServerSide(
     }
   }
 
-  // If site is completely unreachable / broken
+  // If site is completely unreachable
   if (!html || html.length < 50) {
     return {
       url: targetUrl,
       healthScore: 10,
       auditedAt: new Date().toISOString(),
-      responseTimeMs: responseTimeMs || 4500,
+      responseTimeMs: responseTimeMs || 5000,
       pageSpeed: {
         score: 10,
         fcp: '> 5.0 s',
@@ -475,9 +484,9 @@ export async function auditWebsiteServerSide(
     };
   }
 
-  // 2. Google PageSpeed & Core Web Vitals
-  const pageSpeed = await fetchGooglePageSpeedAndCWV(finalUrl, responseTimeMs);
-  if (pageSpeed.score < 50) {
+  // 2. PageSpeed & Core Web Vitals (with Synthetic Fallback)
+  const pageSpeed = await fetchGooglePageSpeedAndCWV(finalUrl, responseTimeMs, html.length);
+  if (pageSpeed.score < 55) {
     score -= 25;
     issues.push({
       type: 'error',
@@ -576,12 +585,12 @@ export async function auditWebsiteServerSide(
     recommendations.push('Implement prominent CTA buttons (Call Now / Get Instant Estimate).');
   }
 
-  // 6. Backdated Copyright (<= 2022)
+  // 6. Backdated Copyright Engine (<= 2022)
   let detectedYear: number | undefined = undefined;
   let isOutdated = false;
   let copyrightText = '';
 
-  const copyrightRegex = /(?:©|&copy;|&#169;|copyright)\s*(?:[0-9]{4}\s*-\s*)?([12][0-9]{3})/i;
+  const copyrightRegex = /(?:copyright|©|\(c\))\s*(?:[12]\d{3}\s*[-–—]\s*)?([12]\d{3})/i;
   const copyrightMatch = html.match(copyrightRegex);
 
   if (copyrightMatch) {
@@ -768,6 +777,7 @@ export function checkSocialPresence(socials?: SocialLinks | null): {
   if (socials.yelp) active.push('Yelp');
   if (socials.mapquest) active.push('MapQuest');
   if (socials.yellowpages) active.push('YellowPages');
+  if (socials.tiktok) active.push('TikTok');
   if (socials.linkedin) active.push('LinkedIn');
   if (socials.twitter_x || socials.twitter) active.push('Twitter/X');
   if (socials.youtube) active.push('YouTube');
@@ -779,15 +789,14 @@ export function checkSocialPresence(socials?: SocialLinks | null): {
 }
 
 /**
- * Deterministic Lead Qualification Logic
+ * 5. Lead Qualification Matrix
  *
- * Marks as QUALIFIED if:
- * 1. No Website exists on GMB or Web Results
- * 2. PageSpeed Score < 50
- * 3. SEO Issues >= 3
- * 4. Copyright <= 2022
- * 5. Missing Mobile Viewport
- * 6. Insecure SSL
+ * Marks is_qualified = true if:
+ * - No Website exists
+ * - PageSpeed Score < 55
+ * - Copyright <= 2022
+ * - Missing Mobile Meta Viewport
+ * - Insecure / Invalid SSL
  */
 export function evaluateQualification(
   lead: Partial<Lead>,
@@ -839,7 +848,7 @@ export function evaluateQualification(
     };
   }
 
-  // If we don't have audit data yet, initial qualification estimate
+  // If we don't have audit data yet
   if (!auditData) {
     return {
       is_qualified: true,
@@ -876,14 +885,14 @@ export function evaluateQualification(
   const warningIssues = auditData.issues.filter((i) => i.type === 'warning').length;
   const totalSeoIssues = errorIssues + warningIssues;
 
-  // 1. Mobile PageSpeed < 50
+  // 1. Mobile PageSpeed < 55
   const pageSpeedScore = auditData.pageSpeed?.score ?? 70;
-  if (pageSpeedScore < 50) {
+  if (pageSpeedScore < 55) {
     score += 30;
     reasons.push(`Critical Mobile PageSpeed (${pageSpeedScore}/100, LCP: ${auditData.pageSpeed?.lcp || 'slow'})`);
-  } else if (pageSpeedScore <= 65) {
+  } else if (pageSpeedScore <= 70) {
     score += 15;
-    reasons.push(`Slow Mobile Performance (${pageSpeedScore}/100)`);
+    reasons.push(`Suboptimal Mobile Performance (${pageSpeedScore}/100)`);
   }
 
   // 2. Copyright <= 2022
@@ -927,7 +936,7 @@ export function evaluateQualification(
   }
 
   const is_qualified =
-    pageSpeedScore < 50 ||
+    pageSpeedScore < 55 ||
     (copyrightYear !== null && copyrightYear <= 2022) ||
     !auditData.ssl.valid ||
     !auditData.mobileResponsive.isMobileFriendly ||
@@ -941,7 +950,7 @@ export function evaluateQualification(
 
   if (!auditData.ssl.valid) {
     qualification_tag = 'INSECURE_SSL';
-  } else if (pageSpeedScore < 50) {
+  } else if (pageSpeedScore < 55) {
     qualification_tag = 'SLOW_PAGESPEED';
   } else if (copyrightYear && copyrightYear <= 2022) {
     qualification_tag = 'OUTDATED_WEBSITE';

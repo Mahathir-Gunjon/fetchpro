@@ -1,16 +1,15 @@
 /**
- * FetchPro - High-Precision Google Maps Profile & Web Results Deep Scraper
+ * FetchPro - Bulletproof Google Maps DOM & Deep Web Results Scraper
  *
- * Strictly separates the Scraping Layer from the Backend Audit & Qualification Engine.
- *
- * Sequential Deep Inspection:
- * 1. Overview Section: Name, Rating, Reviews Count, Category, Phone, Address, Official GMB Website button
- * 2. About & Details metadata: Opening hours, business description
- * 3. Web Results Link Harvester: Discovered candidate websites, Facebook, Instagram, Yelp, LinkedIn, Twitter/X, TikTok, MapQuest, YellowPages
+ * Implements:
+ * 1. Active Nested Scroll Container Detection (`getActiveScrollContainer`)
+ * 2. Stepped Incremental Scroll (`deepScrollPane`) to trigger lazy-loaded Web results
+ * 3. Comprehensive Link & Social Footprint Extraction (`extractAllLinksAndSocials`)
+ * 4. Resilient Payload Normalization for Backend Sync
  */
 
 (function () {
-  console.log('[FetchPro] High-Precision GMB Deep Scraper active on:', window.location.href);
+  console.log('[FetchPro] Bulletproof GMB & Web Results Scraper loaded on:', window.location.href);
 
   let isScraping = false;
   let scrapedLeads = [];
@@ -24,7 +23,22 @@
   }
 
   /**
-   * Find main search results feed container
+   * Step 1: Identify True Active Scroll Container inside Google Maps Place Panel
+   */
+  function getActiveScrollContainer() {
+    const containers = document.querySelectorAll(
+      'div[role="main"] div.m6QErb, div[tabindex="-1"] div.m6QErb, div.m6QErb.DxyBCb, div.m6QErb'
+    );
+    for (const el of containers) {
+      if (el.scrollHeight > el.clientHeight && el.clientHeight > 250) {
+        return el;
+      }
+    }
+    return document.querySelector('div[role="main"]') || document.querySelector('div[tabindex="-1"]') || document.body;
+  }
+
+  /**
+   * Find Search Results Feed Container
    */
   function getSearchFeedContainer() {
     const feed = document.querySelector('div[role="feed"]');
@@ -46,18 +60,127 @@
   }
 
   /**
-   * Find open Place Details pane container
+   * Step 2: Stepped Incremental Scroll to render dynamic Web Results & About nodes
    */
-  function getPlaceDetailsPane() {
-    const detailPane = document.querySelector(
-      'div[role="main"], div.m6QErb.DxyBCb[tabindex="-1"], div.m6QErb[tabindex="-1"], div[aria-label*="Information for"], div.x3AX1-LfntMc-header-title'
-    );
-    if (detailPane) return detailPane.closest('div.m6QErb') || detailPane;
-    return document.querySelector('div.m6QErb');
+  async function deepScrollPane(container) {
+    if (!container) return;
+    const totalSteps = 4;
+    for (let i = 1; i <= totalSteps; i++) {
+      try {
+        container.scrollTop = (container.scrollHeight / totalSteps) * i;
+        container.dispatchEvent(new WheelEvent('wheel', { deltaY: 600, bubbles: true }));
+      } catch (e) {
+        container.scrollTop = container.scrollHeight;
+      }
+      await new Promise((r) => setTimeout(r, 350));
+    }
+    // Final wait for lazy DOM nodes to mount
+    await new Promise((r) => setTimeout(r, 700));
   }
 
   /**
-   * In-page Floating HUD
+   * Step 3: Comprehensive Link & Social Footprint Extraction
+   */
+  function extractAllLinksAndSocials(container) {
+    const root = container || document;
+    const links = Array.from(root.querySelectorAll('a[href]'));
+    const socialProfiles = {
+      facebook: null,
+      instagram: null,
+      yelp: null,
+      linkedin: null,
+      twitter_x: null,
+      youtube: null,
+      mapquest: null,
+      yellowpages: null,
+      tiktok: null,
+      other_web_results: []
+    };
+
+    let discoveredWebsite = null;
+    const web_results_links = [];
+
+    links.forEach((a) => {
+      let rawHref = a.getAttribute('href') || '';
+      if (!rawHref) return;
+
+      // Clean Google Redirects
+      if (rawHref.includes('google.com/url?q=') || rawHref.startsWith('/url?q=')) {
+        const match = rawHref.match(/google\.com\/url\?q=([^&]+)/) || rawHref.match(/\/url\?q=([^&]+)/);
+        if (match && match[1]) {
+          try {
+            rawHref = decodeURIComponent(match[1]);
+          } catch (e) {
+            rawHref = match[1];
+          }
+        }
+      }
+
+      if (
+        !rawHref ||
+        rawHref.startsWith('/') ||
+        rawHref.startsWith('#') ||
+        rawHref.includes('google.com') ||
+        rawHref.includes('gstatic.com') ||
+        rawHref.includes('googleadservices.com') ||
+        rawHref.includes('maps.google') ||
+        rawHref.includes('accounts.google')
+      ) {
+        return;
+      }
+
+      const url = rawHref.toLowerCase();
+      const linkText = cleanText(a.innerText || a.getAttribute('aria-label') || '');
+
+      if (url.includes('facebook.com') && !url.includes('/sharer')) {
+        if (!socialProfiles.facebook) socialProfiles.facebook = rawHref;
+        web_results_links.push({ type: 'facebook', url: rawHref, title: linkText });
+      } else if (url.includes('instagram.com') && !url.includes('/p/')) {
+        if (!socialProfiles.instagram) socialProfiles.instagram = rawHref;
+        web_results_links.push({ type: 'instagram', url: rawHref, title: linkText });
+      } else if (url.includes('yelp.com/biz/') || url.includes('yelp.com')) {
+        if (!socialProfiles.yelp) socialProfiles.yelp = rawHref;
+        web_results_links.push({ type: 'yelp', url: rawHref, title: linkText });
+      } else if (url.includes('tiktok.com/@') || url.includes('tiktok.com')) {
+        if (!socialProfiles.tiktok) socialProfiles.tiktok = rawHref;
+        web_results_links.push({ type: 'tiktok', url: rawHref, title: linkText });
+      } else if (url.includes('linkedin.com/company/') || url.includes('linkedin.com/in/')) {
+        if (!socialProfiles.linkedin) socialProfiles.linkedin = rawHref;
+        web_results_links.push({ type: 'linkedin', url: rawHref, title: linkText });
+      } else if (url.includes('twitter.com/') || url.includes('x.com/')) {
+        if (!socialProfiles.twitter_x) socialProfiles.twitter_x = rawHref;
+        web_results_links.push({ type: 'twitter_x', url: rawHref, title: linkText });
+      } else if (url.includes('youtube.com/c/') || url.includes('youtube.com/@') || url.includes('youtube.com/channel/')) {
+        if (!socialProfiles.youtube) socialProfiles.youtube = rawHref;
+        web_results_links.push({ type: 'youtube', url: rawHref, title: linkText });
+      } else if (url.includes('mapquest.com')) {
+        if (!socialProfiles.mapquest) socialProfiles.mapquest = rawHref;
+        web_results_links.push({ type: 'mapquest', url: rawHref, title: linkText });
+      } else if (url.includes('yellowpages.com')) {
+        if (!socialProfiles.yellowpages) socialProfiles.yellowpages = rawHref;
+        web_results_links.push({ type: 'directory', url: rawHref, title: linkText });
+      } else if (
+        url.includes('bbb.org') ||
+        url.includes('angi.com') ||
+        url.includes('homeadvisor.com') ||
+        url.includes('tripadvisor.com') ||
+        url.includes('thumbtack.com') ||
+        url.includes('houzz.com')
+      ) {
+        web_results_links.push({ type: 'directory', url: rawHref, title: linkText });
+        socialProfiles.other_web_results.push(rawHref);
+      } else {
+        if (!discoveredWebsite) discoveredWebsite = rawHref;
+        socialProfiles.other_web_results.push(rawHref);
+        web_results_links.push({ type: 'website', url: rawHref, title: linkText });
+      }
+    });
+
+    return { discoveredWebsite, socialProfiles, web_results_links };
+  }
+
+  /**
+   * Floating In-Page Status HUD
    */
   function updateFloatingHUD(statusText, count = 0, isRunning = false, activeName = '') {
     if (!floatingBanner) {
@@ -102,120 +225,15 @@
   }
 
   /**
-   * Harvest "Web results" bottom list & classify links into websites, directories, and social profiles
+   * Deep Inspection of Open Business Profile Card
    */
-  function harvestWebResultsAndSocials(rootEl) {
-    const root = rootEl || document;
-    const web_results_links = [];
-    const social_profiles = {
-      facebook: null,
-      instagram: null,
-      yelp: null,
-      linkedin: null,
-      twitter_x: null,
-      youtube: null,
-      tiktok: null,
-      mapquest: null,
-      yellowpages: null,
-    };
-    let discovered_website = null;
+  async function deepInspectActiveProfile() {
+    const scrollContainer = getActiveScrollContainer();
 
-    const allLinks = root.querySelectorAll('a[href^="http"], a[href^="/url?q="]');
+    // 1. Perform stepped incremental scroll to force lazy loading
+    await deepScrollPane(scrollContainer);
 
-    allLinks.forEach((a) => {
-      let rawHref = a.href || a.getAttribute('href');
-      if (!rawHref) return;
-
-      // Handle Google redirect wrappers
-      if (rawHref.includes('google.com/url?q=') || rawHref.startsWith('/url?q=')) {
-        try {
-          const urlParams = new URLSearchParams(rawHref.split('?')[1]);
-          const target = urlParams.get('q');
-          if (target) rawHref = target;
-        } catch (e) {}
-      }
-
-      const cleanLower = rawHref.toLowerCase();
-      const linkText = cleanText(a.innerText || a.getAttribute('aria-label') || '');
-
-      // Skip internal Google and tracking URLs
-      if (
-        cleanLower.includes('google.com') ||
-        cleanLower.includes('gstatic.com') ||
-        cleanLower.includes('googleadservices.com') ||
-        cleanLower.includes('maps.google') ||
-        cleanLower.includes('accounts.google')
-      ) {
-        return;
-      }
-
-      // Classify social profiles & directory listings
-      if (cleanLower.includes('facebook.com') && !cleanLower.includes('/sharer')) {
-        if (!social_profiles.facebook) social_profiles.facebook = rawHref;
-        web_results_links.push({ type: 'facebook', url: rawHref, title: linkText });
-      } else if (cleanLower.includes('instagram.com') && !cleanLower.includes('/p/')) {
-        if (!social_profiles.instagram) social_profiles.instagram = rawHref;
-        web_results_links.push({ type: 'instagram', url: rawHref, title: linkText });
-      } else if (cleanLower.includes('yelp.com/biz/')) {
-        if (!social_profiles.yelp) social_profiles.yelp = rawHref;
-        web_results_links.push({ type: 'yelp', url: rawHref, title: linkText });
-      } else if (cleanLower.includes('tiktok.com/@')) {
-        if (!social_profiles.tiktok) social_profiles.tiktok = rawHref;
-        web_results_links.push({ type: 'tiktok', url: rawHref, title: linkText });
-      } else if (cleanLower.includes('linkedin.com/company/') || cleanLower.includes('linkedin.com/in/')) {
-        if (!social_profiles.linkedin) social_profiles.linkedin = rawHref;
-        web_results_links.push({ type: 'linkedin', url: rawHref, title: linkText });
-      } else if (cleanLower.includes('twitter.com/') || cleanLower.includes('x.com/')) {
-        if (!social_profiles.twitter_x) social_profiles.twitter_x = rawHref;
-        web_results_links.push({ type: 'twitter_x', url: rawHref, title: linkText });
-      } else if (cleanLower.includes('youtube.com/c/') || cleanLower.includes('youtube.com/@') || cleanLower.includes('youtube.com/channel/')) {
-        if (!social_profiles.youtube) social_profiles.youtube = rawHref;
-        web_results_links.push({ type: 'youtube', url: rawHref, title: linkText });
-      } else if (cleanLower.includes('mapquest.com')) {
-        if (!social_profiles.mapquest) social_profiles.mapquest = rawHref;
-        web_results_links.push({ type: 'mapquest', url: rawHref, title: linkText });
-      } else if (cleanLower.includes('yellowpages.com')) {
-        if (!social_profiles.yellowpages) social_profiles.yellowpages = rawHref;
-        web_results_links.push({ type: 'directory', url: rawHref, title: linkText });
-      } else if (
-        cleanLower.includes('bbb.org') ||
-        cleanLower.includes('angi.com') ||
-        cleanLower.includes('homeadvisor.com') ||
-        cleanLower.includes('tripadvisor.com') ||
-        cleanLower.includes('thumbtack.com') ||
-        cleanLower.includes('houzz.com')
-      ) {
-        web_results_links.push({ type: 'directory', url: rawHref, title: linkText });
-      } else {
-        // Discovered candidate direct website
-        if (!discovered_website) {
-          discovered_website = rawHref;
-        }
-        web_results_links.push({ type: 'website', url: rawHref, title: linkText });
-      }
-    });
-
-    return { web_results_links, social_profiles, discovered_website };
-  }
-
-  /**
-   * Deep Crawl of the currently selected place profile
-   */
-  async function deepCrawlSelectedPlace() {
-    const detailPane = getPlaceDetailsPane();
-
-    // 1. Smoothly scroll the detail pane to the bottom to force lazy-loaded "Web results"
-    if (detailPane) {
-      try {
-        detailPane.scrollTo({ top: detailPane.scrollHeight, behavior: 'smooth' });
-      } catch (e) {
-        detailPane.scrollTop = detailPane.scrollHeight;
-      }
-      // Wait 1.0s for lazy-loaded Web results list and dynamic DOM nodes
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-
-    // 2. Business Name
+    // 2. Extract Business Name
     const nameEl = document.querySelector(
       'h1.DUwDvf, [class*="header-title-title"], div.x3AX1-LfntMc-header-title-title, h1'
     );
@@ -226,7 +244,7 @@
 
     const currentMapsUrl = window.location.href;
 
-    // 3. Overall Rating & Reviews Count
+    // 3. Extract Rating & Reviews
     let rating = 0;
     let reviewsCount = 0;
     const ratingEl = document.querySelector('div.F7nice, span.MW4etd, [aria-label*="stars"]');
@@ -267,14 +285,14 @@
       address = cleanText(addressBtn.innerText || addressBtn.getAttribute('aria-label') || '');
     }
 
-    // 7. Opening Hours / Operational Status
+    // 7. Opening Hours
     let openingHours = '';
     const hoursEl = document.querySelector('div.t39EBf, span.ZDu9vd, div[aria-label*="hours"]');
     if (hoursEl) {
       openingHours = cleanText(hoursEl.innerText || hoursEl.getAttribute('aria-label') || '');
     }
 
-    // 8. Business Description
+    // 8. Description
     let description = '';
     const descEl = document.querySelector('div.PYvSYb, div.m6QErb div[aria-label*="About"]');
     if (descEl) {
@@ -297,10 +315,12 @@
       gmb_website_url = raw;
     }
 
-    // 10. Harvest Web Results & Social Media Profiles
-    const { web_results_links, social_profiles, discovered_website } = harvestWebResultsAndSocials(detailPane || document);
+    // 10. Extract Web Results & Social Media Footprint
+    const { discoveredWebsite, socialProfiles, web_results_links } = extractAllLinksAndSocials(
+      scrollContainer || document
+    );
 
-    const finalWebsiteUrl = gmb_website_url || discovered_website || null;
+    const finalWebsiteUrl = gmb_website_url || discoveredWebsite || null;
 
     const existingIndex = scrapedLeads.findIndex(
       (l) =>
@@ -323,10 +343,10 @@
       maps_url: currentMapsUrl,
       gmb_website_url: gmb_website_url,
       website_url: finalWebsiteUrl,
-      discovered_website: discovered_website,
+      discovered_website: discoveredWebsite,
       web_results_links: web_results_links.length > 0 ? web_results_links : null,
-      social_profiles: social_profiles,
-      socials: social_profiles,
+      social_profiles: socialProfiles,
+      socials: socialProfiles,
       email: null,
       scraped_at: new Date().toISOString(),
     };
@@ -336,8 +356,8 @@
         ...scrapedLeads[existingIndex],
         ...lead,
         website_url: scrapedLeads[existingIndex].website_url || finalWebsiteUrl,
-        social_profiles: social_profiles || scrapedLeads[existingIndex].social_profiles,
-        socials: social_profiles || scrapedLeads[existingIndex].socials,
+        social_profiles: socialProfiles || scrapedLeads[existingIndex].social_profiles,
+        socials: socialProfiles || scrapedLeads[existingIndex].socials,
       };
       return 0;
     }
@@ -349,9 +369,9 @@
   }
 
   /**
-   * Fast feed extractor (grabs feed cards before deep profile inspection)
+   * Fast Feed Extractor
    */
-  function extractQuickFeedFromDOM() {
+  function extractFeedCards() {
     let count = 0;
     const placeLinks = document.querySelectorAll(
       'a.hfpxzc, a[href*="/maps/place/"], div.Nv2PK, div.qBF1Pd, div.fontHeadlineSmall, div[role="article"]'
@@ -453,26 +473,22 @@
   }
 
   /**
-   * Master Scraper Loop:
-   * Sequential Deep Inspection:
-   * 1. Clicks card, waits >= 1.2s for detail pane to render.
-   * 2. Extracts core data & smooth scrolls detail pane to bottom (waiting 1.0s for Web results).
-   * 3. Harvests URLs, social profiles, and updates HUD.
+   * Main Scraping Loop
    */
   async function runScrapeLoop() {
     const feedContainer = getSearchFeedContainer();
     let processedCards = 0;
     let consecutiveNoNew = 0;
 
-    console.log('[FetchPro] Starting GMB Deep Crawl loop...');
+    console.log('[FetchPro] Starting GMB Deep Inspection loop...');
     updateFloatingHUD('Starting Deep Crawl...', scrapedLeads.length, true);
 
     while (isScraping && scrapedLeads.length < maxLeadsTarget) {
       const cards = Array.from(document.querySelectorAll('a.hfpxzc, div.Nv2PK a[href*="/maps/place/"]'));
 
       if (cards.length === 0) {
-        extractQuickFeedFromDOM();
-        await deepCrawlSelectedPlace();
+        extractFeedCards();
+        await deepInspectActiveProfile();
       }
 
       // Iterate through visible cards
@@ -486,12 +502,12 @@
           const cardName = cleanText(cardAnchor.getAttribute('aria-label') || '');
           updateFloatingHUD('Inspecting Profile', scrapedLeads.length, true, cardName);
 
-          // 1. Click card to open overview & details and wait at least 1.2s
+          // 1. Click card to open overview & details and wait 1.25s
           cardAnchor.click();
           await new Promise((r) => setTimeout(r, 1250));
 
-          // 2. Deep crawl place & smooth scroll detail pane for Web results (with 1.0s wait)
-          await deepCrawlSelectedPlace();
+          // 2. Deep stepped scroll and extract Web results & social footprints
+          await deepInspectActiveProfile();
 
           const latest = scrapedLeads[scrapedLeads.length - 1];
           updateFloatingHUD('Crawled Lead', scrapedLeads.length, true, latest?.business_name || '');
@@ -522,7 +538,7 @@
 
       await new Promise((r) => setTimeout(r, 1200));
 
-      const newlyFound = extractQuickFeedFromDOM();
+      const newlyFound = extractFeedCards();
       if (newlyFound === 0 && processedCards >= cards.length) {
         consecutiveNoNew++;
       } else {
@@ -564,8 +580,8 @@
     }
 
     if (message.type === 'EXTRACT_NOW') {
-      extractQuickFeedFromDOM();
-      deepCrawlSelectedPlace().then(() => {
+      extractFeedCards();
+      deepInspectActiveProfile().then(() => {
         chrome.storage.local.set({ leadflow_leads: scrapedLeads });
         updateFloatingHUD('Extracted Profile & Web results', scrapedLeads.length, false);
         sendResponse({ status: 'OK', count: scrapedLeads.length, leads: scrapedLeads });
@@ -629,7 +645,7 @@
         target.closest('[role="article"]'))
     ) {
       setTimeout(() => {
-        deepCrawlSelectedPlace().then(() => {
+        deepInspectActiveProfile().then(() => {
           chrome.storage.local.set({ leadflow_leads: scrapedLeads });
         });
       }, 1250);
@@ -650,8 +666,8 @@
 
   // Initial pass
   setTimeout(() => {
-    extractQuickFeedFromDOM();
-    deepCrawlSelectedPlace().then(() => {
+    extractFeedCards();
+    deepInspectActiveProfile().then(() => {
       if (scrapedLeads.length > 0) {
         chrome.storage.local.set({ leadflow_leads: scrapedLeads });
         updateFloatingHUD('Ready', scrapedLeads.length, false);
