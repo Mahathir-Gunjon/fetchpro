@@ -1,16 +1,16 @@
 /**
- * FetchPro - High-Fidelity Google Maps Profile & Web Results Scraper
+ * FetchPro - High-Precision Google Maps Profile & Web Results Deep Scraper
  *
  * Strictly separates the Scraping Layer from the Backend Audit & Qualification Engine.
  *
- * Extracts:
+ * Sequential Deep Inspection:
  * 1. Overview Section: Name, Rating, Reviews Count, Category, Phone, Address, Official GMB Website button
- * 2. About & Details metadata: Opening hours, verified badges, business description
- * 3. Web Results Link Harvester: Discovered candidate websites, Facebook, Instagram, Yelp, LinkedIn, Twitter/X, TikTok, YouTube
+ * 2. About & Details metadata: Opening hours, business description
+ * 3. Web Results Link Harvester: Discovered candidate websites, Facebook, Instagram, Yelp, LinkedIn, Twitter/X, TikTok, MapQuest, YellowPages
  */
 
 (function () {
-  console.log('[FetchPro] High-Fidelity GMB Scraper active on:', window.location.href);
+  console.log('[FetchPro] High-Precision GMB Deep Scraper active on:', window.location.href);
 
   let isScraping = false;
   let scrapedLeads = [];
@@ -59,7 +59,7 @@
   /**
    * In-page Floating HUD
    */
-  function updateFloatingHUD(statusText, count = 0, isRunning = false) {
+  function updateFloatingHUD(statusText, count = 0, isRunning = false, activeName = '') {
     if (!floatingBanner) {
       floatingBanner = document.createElement('div');
       floatingBanner.id = 'fetchpro-floating-hud';
@@ -81,6 +81,7 @@
         align-items: center;
         gap: 12px;
         user-select: none;
+        max-width: 380px;
       `;
       document.body.appendChild(floatingBanner);
     }
@@ -93,7 +94,10 @@
         <strong style="font-weight:700; color:#60a5fa;">FetchPro Harvester</strong>
       </div>
       <div style="height:14px; width:1px; background:rgba(255,255,255,0.2);"></div>
-      <div>${statusText}: <span style="font-weight:700; color:#38bdf8;">${count}</span> leads</div>
+      <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+        <span>${statusText}: <span style="font-weight:700; color:#38bdf8;">${count}</span> leads</span>
+        ${activeName ? `<div style="font-size:11px; color:#94a3b8; overflow:hidden; text-overflow:ellipsis;">👉 ${activeName}</div>` : ''}
+      </div>
     `;
   }
 
@@ -112,17 +116,18 @@
       youtube: null,
       tiktok: null,
       mapquest: null,
+      yellowpages: null,
     };
     let discovered_website = null;
 
-    const allLinks = root.querySelectorAll('a[href^="http"]');
+    const allLinks = root.querySelectorAll('a[href^="http"], a[href^="/url?q="]');
 
     allLinks.forEach((a) => {
-      let rawHref = a.href;
+      let rawHref = a.href || a.getAttribute('href');
       if (!rawHref) return;
 
       // Handle Google redirect wrappers
-      if (rawHref.includes('google.com/url?q=')) {
+      if (rawHref.includes('google.com/url?q=') || rawHref.startsWith('/url?q=')) {
         try {
           const urlParams = new URLSearchParams(rawHref.split('?')[1]);
           const target = urlParams.get('q');
@@ -138,12 +143,13 @@
         cleanLower.includes('google.com') ||
         cleanLower.includes('gstatic.com') ||
         cleanLower.includes('googleadservices.com') ||
-        cleanLower.includes('maps.google')
+        cleanLower.includes('maps.google') ||
+        cleanLower.includes('accounts.google')
       ) {
         return;
       }
 
-      // Classify links
+      // Classify social profiles & directory listings
       if (cleanLower.includes('facebook.com') && !cleanLower.includes('/sharer')) {
         if (!social_profiles.facebook) social_profiles.facebook = rawHref;
         web_results_links.push({ type: 'facebook', url: rawHref, title: linkText });
@@ -168,8 +174,10 @@
       } else if (cleanLower.includes('mapquest.com')) {
         if (!social_profiles.mapquest) social_profiles.mapquest = rawHref;
         web_results_links.push({ type: 'mapquest', url: rawHref, title: linkText });
+      } else if (cleanLower.includes('yellowpages.com')) {
+        if (!social_profiles.yellowpages) social_profiles.yellowpages = rawHref;
+        web_results_links.push({ type: 'directory', url: rawHref, title: linkText });
       } else if (
-        cleanLower.includes('yellowpages.com') ||
         cleanLower.includes('bbb.org') ||
         cleanLower.includes('angi.com') ||
         cleanLower.includes('homeadvisor.com') ||
@@ -196,16 +204,18 @@
   async function deepCrawlSelectedPlace() {
     const detailPane = getPlaceDetailsPane();
 
-    // Auto-scroll the detail pane to trigger lazy rendering of Web results & About section
-    if (detailPane && detailPane.scrollHeight > detailPane.clientHeight) {
-      detailPane.scrollTop = detailPane.scrollHeight;
+    // 1. Smoothly scroll the detail pane to the bottom to force lazy-loaded "Web results"
+    if (detailPane) {
       try {
-        detailPane.dispatchEvent(new WheelEvent('wheel', { deltaY: 1000, bubbles: true }));
-      } catch (e) {}
-      await new Promise((r) => setTimeout(r, 450));
+        detailPane.scrollTo({ top: detailPane.scrollHeight, behavior: 'smooth' });
+      } catch (e) {
+        detailPane.scrollTop = detailPane.scrollHeight;
+      }
+      // Wait 1.0s for lazy-loaded Web results list and dynamic DOM nodes
+      await new Promise((r) => setTimeout(r, 1000));
     }
 
-    // 1. Business Name
+    // 2. Business Name
     const nameEl = document.querySelector(
       'h1.DUwDvf, [class*="header-title-title"], div.x3AX1-LfntMc-header-title-title, h1'
     );
@@ -216,7 +226,7 @@
 
     const currentMapsUrl = window.location.href;
 
-    // 2. Rating & Reviews Count
+    // 3. Overall Rating & Reviews Count
     let rating = 0;
     let reviewsCount = 0;
     const ratingEl = document.querySelector('div.F7nice, span.MW4etd, [aria-label*="stars"]');
@@ -229,14 +239,14 @@
       if (matchRev) reviewsCount = parseInt(matchRev[1].replace(/,/g, ''), 10);
     }
 
-    // 3. Category
+    // 4. Primary Category
     let category = '';
     const catBtn = document.querySelector('button[jsaction*="category"], button.DkEaL, [data-item-id*="address"] + div');
     if (catBtn) {
       category = cleanText(catBtn.innerText || '');
     }
 
-    // 4. Phone
+    // 5. Phone Number
     let phone = '';
     const phoneBtn = document.querySelector(
       'button[data-item-id*="phone"], button[aria-label*="Phone"], [data-tooltip*="phone"]'
@@ -248,7 +258,7 @@
       if (pMatch) phone = cleanText(pMatch[0]);
     }
 
-    // 5. Address
+    // 6. Full Address
     let address = '';
     const addressBtn = document.querySelector(
       'button[data-item-id*="address"], button[aria-label*="Address"], [data-tooltip*="address"]'
@@ -257,28 +267,28 @@
       address = cleanText(addressBtn.innerText || addressBtn.getAttribute('aria-label') || '');
     }
 
-    // 6. Opening Hours / Operational Status
+    // 7. Opening Hours / Operational Status
     let openingHours = '';
     const hoursEl = document.querySelector('div.t39EBf, span.ZDu9vd, div[aria-label*="hours"]');
     if (hoursEl) {
       openingHours = cleanText(hoursEl.innerText || hoursEl.getAttribute('aria-label') || '');
     }
 
-    // 7. Business Description
+    // 8. Business Description
     let description = '';
     const descEl = document.querySelector('div.PYvSYb, div.m6QErb div[aria-label*="About"]');
     if (descEl) {
       description = cleanText(descEl.innerText || '');
     }
 
-    // 8. Official GMB Website Button Link
+    // 9. Official GMB Website Button Link
     let gmb_website_url = null;
     const webBtn = document.querySelector(
-      'a[data-item-id="authority"], a[aria-label*="Website"], a[data-tooltip*="website"]'
+      'a[data-item-id="authority"], a[aria-label*="Website"], a[aria-label*="website"], a[data-tooltip*="website"]'
     );
     if (webBtn && webBtn.href) {
       let raw = webBtn.href;
-      if (raw.includes('google.com/url?q=')) {
+      if (raw.includes('google.com/url?q=') || raw.startsWith('/url?q=')) {
         try {
           const p = new URLSearchParams(raw.split('?')[1]);
           raw = p.get('q') || raw;
@@ -287,8 +297,8 @@
       gmb_website_url = raw;
     }
 
-    // 9. Web Results & Social Media Harvester
-    const { web_results_links, social_profiles, discovered_website } = harvestWebResultsAndSocials(document);
+    // 10. Harvest Web Results & Social Media Profiles
+    const { web_results_links, social_profiles, discovered_website } = harvestWebResultsAndSocials(detailPane || document);
 
     const finalWebsiteUrl = gmb_website_url || discovered_website || null;
 
@@ -298,7 +308,7 @@
         l.business_name.toLowerCase() === businessName.toLowerCase()
     );
 
-    // Normalized Raw Payload sent to Backend
+    // Complete Normalized Raw Payload
     const lead = {
       id: 'ext_' + Date.now() + '_' + Math.random().toString(36).substr(2, 7),
       business_name: businessName,
@@ -402,7 +412,7 @@
       );
       if (webLink && webLink.href) {
         let rawUrl = webLink.href;
-        if (rawUrl.includes('google.com/url?q=')) {
+        if (rawUrl.includes('google.com/url?q=') || rawUrl.startsWith('/url?q=')) {
           const params = new URLSearchParams(rawUrl.split('?')[1]);
           rawUrl = params.get('q') || rawUrl;
         }
@@ -444,7 +454,10 @@
 
   /**
    * Master Scraper Loop:
-   * Iterates through all cards, clicks to open detail panel, deep crawls, and scrolls feed.
+   * Sequential Deep Inspection:
+   * 1. Clicks card, waits >= 1.2s for detail pane to render.
+   * 2. Extracts core data & smooth scrolls detail pane to bottom (waiting 1.0s for Web results).
+   * 3. Harvests URLs, social profiles, and updates HUD.
    */
   async function runScrapeLoop() {
     const feedContainer = getSearchFeedContainer();
@@ -452,7 +465,7 @@
     let consecutiveNoNew = 0;
 
     console.log('[FetchPro] Starting GMB Deep Crawl loop...');
-    updateFloatingHUD('Crawling Profiles & Web results', scrapedLeads.length, true);
+    updateFloatingHUD('Starting Deep Crawl...', scrapedLeads.length, true);
 
     while (isScraping && scrapedLeads.length < maxLeadsTarget) {
       const cards = Array.from(document.querySelectorAll('a.hfpxzc, div.Nv2PK a[href*="/maps/place/"]'));
@@ -470,14 +483,18 @@
         processedCards = i + 1;
 
         try {
-          // 1. Click card to open overview & details
-          cardAnchor.click();
-          await new Promise((r) => setTimeout(r, 700));
+          const cardName = cleanText(cardAnchor.getAttribute('aria-label') || '');
+          updateFloatingHUD('Inspecting Profile', scrapedLeads.length, true, cardName);
 
-          // 2. Auto-scroll detail panel and extract Web results + social links
+          // 1. Click card to open overview & details and wait at least 1.2s
+          cardAnchor.click();
+          await new Promise((r) => setTimeout(r, 1250));
+
+          // 2. Deep crawl place & smooth scroll detail pane for Web results (with 1.0s wait)
           await deepCrawlSelectedPlace();
 
-          updateFloatingHUD('Crawling Profiles & Web results', scrapedLeads.length, true);
+          const latest = scrapedLeads[scrapedLeads.length - 1];
+          updateFloatingHUD('Crawled Lead', scrapedLeads.length, true, latest?.business_name || '');
           chrome.storage.local.set({ leadflow_leads: scrapedLeads });
 
           chrome.runtime
@@ -485,7 +502,7 @@
               type: 'SCRAPE_PROGRESS',
               count: scrapedLeads.length,
               maxLeads: maxLeadsTarget,
-              latestLead: scrapedLeads[scrapedLeads.length - 1] || null,
+              latestLead: latest || null,
             })
             .catch(() => {});
         } catch (cardErr) {
@@ -550,7 +567,7 @@
       extractQuickFeedFromDOM();
       deepCrawlSelectedPlace().then(() => {
         chrome.storage.local.set({ leadflow_leads: scrapedLeads });
-        updateFloatingHUD('Extracted profile & Web results', scrapedLeads.length, false);
+        updateFloatingHUD('Extracted Profile & Web results', scrapedLeads.length, false);
         sendResponse({ status: 'OK', count: scrapedLeads.length, leads: scrapedLeads });
       });
       return true;
@@ -615,7 +632,7 @@
         deepCrawlSelectedPlace().then(() => {
           chrome.storage.local.set({ leadflow_leads: scrapedLeads });
         });
-      }, 900);
+      }, 1250);
     }
   });
 
@@ -640,5 +657,5 @@
         updateFloatingHUD('Ready', scrapedLeads.length, false);
       }
     });
-  }, 1000);
+  }, 1200);
 })();

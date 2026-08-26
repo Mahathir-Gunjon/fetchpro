@@ -10,6 +10,7 @@ export interface SocialLinks {
   youtube?: string | null;
   yelp?: string | null;
   mapquest?: string | null;
+  yellowpages?: string | null;
 }
 
 export interface WebResultLink {

@@ -172,6 +172,8 @@ export function extractSocialProfiles(html: string): SocialLinks {
       socials.youtube = url;
     } else if (!socials.mapquest && lower.includes('mapquest.com')) {
       socials.mapquest = url;
+    } else if (!socials.yellowpages && lower.includes('yellowpages.com')) {
+      socials.yellowpages = url;
     }
   }
 
@@ -764,7 +766,8 @@ export function checkSocialPresence(socials?: SocialLinks | null): {
   if (socials.facebook) active.push('Facebook');
   if (socials.instagram) active.push('Instagram');
   if (socials.yelp) active.push('Yelp');
-  if (socials.tiktok) active.push('TikTok');
+  if (socials.mapquest) active.push('MapQuest');
+  if (socials.yellowpages) active.push('YellowPages');
   if (socials.linkedin) active.push('LinkedIn');
   if (socials.twitter_x || socials.twitter) active.push('Twitter/X');
   if (socials.youtube) active.push('YouTube');

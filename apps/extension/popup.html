@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FetchPro - Google Maps Scraper</title>
+  <title>FetchPro - Google Maps Lead Harvester</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="bg-slate-950 text-slate-100 antialiased font-sans">
@@ -18,24 +18,37 @@
         </div>
         <div>
           <h1 class="logo-title">FetchPro</h1>
-          <p class="logo-subtitle">B2B Maps Lead Extractor</p>
+          <p class="logo-subtitle">Deep GMB & Web Harvester</p>
         </div>
       </div>
       <div id="page-status" class="status-pill status-pill-inactive">
         <span class="status-dot"></span>
-        <span id="page-status-text">Checking Tab...</span>
+        <span id="page-status-text">Checking Maps...</span>
       </div>
     </header>
 
     <!-- Target Sync URL Display Banner -->
     <div class="target-url-bar flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-900/80 border border-slate-800 text-[11px]">
       <div class="flex items-center gap-1.5 truncate">
-        <span class="text-slate-400">Syncing to:</span>
+        <span class="text-slate-400">Sync Target:</span>
         <span id="current-target-label" class="font-mono text-blue-400 font-semibold truncate max-w-[170px]">http://localhost:3000</span>
       </div>
       <button id="btn-toggle-config-quick" class="text-sky-400 hover:text-sky-300 font-medium text-[11px] underline">
-        Change
+        Configure
       </button>
+    </div>
+
+    <!-- Active Inspection Live Banner HUD -->
+    <div id="live-inspect-banner" class="p-2.5 rounded-xl bg-blue-950/40 border border-blue-500/30 text-xs hidden">
+      <div class="flex items-center justify-between text-[11px] text-blue-300 mb-1">
+        <span class="flex items-center gap-1.5 font-bold uppercase tracking-wider">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          Inspecting Live Profile
+        </span>
+        <span id="live-inspect-count" class="font-mono font-bold text-white">0 / 100</span>
+      </div>
+      <div id="live-inspect-name" class="font-bold text-white truncate text-xs">Waiting for place card...</div>
+      <div id="live-inspect-meta" class="text-[11px] text-slate-400 truncate mt-0.5 font-mono">Scrolling Web results...</div>
     </div>
 
     <!-- Map Search Notice if not on Google Maps -->
@@ -43,7 +56,7 @@
       <div class="notice-icon">📍</div>
       <div class="notice-body">
         <p class="notice-title">Open Google Maps</p>
-        <p class="notice-desc">Search for any business category (e.g. "Dentists in Austin") on Google Maps to start scraping.</p>
+        <p class="notice-desc">Search for any local business category (e.g. "Roofing contractors in Dallas") to start harvesting.</p>
         <button id="btn-open-maps" class="btn btn-sm btn-outline mt-2">Open Google Maps</button>
       </div>
     </div>
@@ -67,7 +80,7 @@
     <!-- Main Controls -->
     <div class="controls-card">
       <div class="flex items-center justify-between mb-3">
-        <label for="max-leads-select" class="text-xs font-semibold uppercase tracking-wider text-slate-400">Lead Target</label>
+        <label for="max-leads-select" class="text-xs font-semibold uppercase tracking-wider text-slate-400">Target Target</label>
         <select id="max-leads-select" class="select-input">
           <option value="15">15 Leads</option>
           <option value="30">30 Leads</option>
@@ -82,7 +95,7 @@
       <div class="flex gap-2">
         <button id="btn-scrape-toggle" class="btn btn-primary flex-1">
           <span class="btn-icon">⚡</span>
-          <span id="btn-scrape-label">Start Scraping</span>
+          <span id="btn-scrape-label">Start Deep Harvester</span>
         </button>
         <button id="btn-clear" class="btn btn-secondary btn-icon-only" title="Clear extracted leads">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -117,7 +130,7 @@
             <line x1="12" y1="8" x2="12" y2="12"></line>
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
           </svg>
-          <p class="text-xs text-slate-400">Search Google Maps and click Start Scraping.</p>
+          <p class="text-xs text-slate-400">Search Google Maps and click Start Deep Harvester.</p>
         </div>
       </div>
     </div>

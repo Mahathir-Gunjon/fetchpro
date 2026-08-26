@@ -7,7 +7,7 @@ import { Navbar } from '@/components/Navbar';
 import { Sidebar, DashboardViewTab } from '@/components/Sidebar';
 import { StatsOverview } from '@/components/StatsOverview';
 import { LeadsTable } from '@/components/LeadsTable';
-import { AuditReportModal } from '@/components/AuditReportModal';
+import { AuditDrawer } from '@/components/AuditDrawer';
 import { PitchEditorModal } from '@/components/PitchEditorModal';
 import { WhyPickedModal } from '@/components/WhyPickedModal';
 import { AddLeadModal } from '@/components/AddLeadModal';
@@ -40,7 +40,7 @@ export default function DashboardPage() {
   const [auditingIds, setAuditingIds] = useState<Set<string>>(new Set());
   const [isBatchAuditing, setIsBatchAuditing] = useState(false);
 
-  // Modals state
+  // Modals / Drawer state
   const [selectedAuditLead, setSelectedAuditLead] = useState<Lead | null>(null);
   const [selectedPitchLead, setSelectedPitchLead] = useState<Lead | null>(null);
   const [selectedWhyPickedLead, setSelectedWhyPickedLead] = useState<Lead | null>(null);
@@ -348,7 +348,7 @@ export default function DashboardPage() {
     pitchBody: string
   ): Promise<boolean> => {
     try {
-      const res = await fetch('/api/leads/send-email', {
+      const res = await fetch('/api/outreach/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ leadId, to, subject, pitchBody }),
@@ -537,14 +537,14 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Clickable Stats Overview */}
+          {/* Top Metrics Bar */}
           <StatsOverview
             stats={stats}
             currentTab={activeTab}
             onSelectTab={setActiveTab}
           />
 
-          {/* Leads Table */}
+          {/* Modern Leads Table */}
           <LeadsTable
             leads={leads}
             onOpenAudit={(lead) => setSelectedAuditLead(lead)}
@@ -565,8 +565,8 @@ export default function DashboardPage() {
         </main>
       </div>
 
-      {/* Modals */}
-      <AuditReportModal
+      {/* Slide-Over Drawer: Deep Audit Breakdown & Executive Summary */}
+      <AuditDrawer
         lead={selectedAuditLead}
         isOpen={!!selectedAuditLead}
         onClose={() => setSelectedAuditLead(null)}
@@ -576,6 +576,7 @@ export default function DashboardPage() {
         isAuditing={auditingId === selectedAuditLead?.id}
       />
 
+      {/* Why Picked Modal */}
       <WhyPickedModal
         lead={selectedWhyPickedLead}
         isOpen={!!selectedWhyPickedLead}
@@ -585,6 +586,7 @@ export default function DashboardPage() {
         isAuditing={auditingId === selectedWhyPickedLead?.id}
       />
 
+      {/* 1-Click Outreach Email Composer Modal */}
       <PitchEditorModal
         lead={selectedPitchLead}
         isOpen={!!selectedPitchLead}
@@ -593,12 +595,14 @@ export default function DashboardPage() {
         onRegeneratePitch={handleRegeneratePitch}
       />
 
+      {/* Manual Add Lead Modal */}
       <AddLeadModal
         isOpen={isAddLeadOpen}
         onClose={() => setIsAddLeadOpen(false)}
         onAddLead={handleAddLead}
       />
 
+      {/* Chrome Extension Connect Modal */}
       <ExtensionConfigModal
         isOpen={isExtensionConfigOpen}
         onClose={() => setIsExtensionConfigOpen(false)}

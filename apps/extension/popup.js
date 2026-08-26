@@ -13,6 +13,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const statWebsites = document.getElementById('stat-websites');
   const statPhones = document.getElementById('stat-phones');
 
+  const liveInspectBanner = document.getElementById('live-inspect-banner');
+  const liveInspectName = document.getElementById('live-inspect-name');
+  const liveInspectMeta = document.getElementById('live-inspect-meta');
+  const liveInspectCount = document.getElementById('live-inspect-count');
+
   const maxLeadsSelect = document.getElementById('max-leads-select');
   const btnScrapeToggle = document.getElementById('btn-scrape-toggle');
   const btnScrapeLabel = document.getElementById('btn-scrape-label');
@@ -135,7 +140,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     extractedLeads = leads || [];
     statTotal.textContent = extractedLeads.length;
 
-    const withWeb = extractedLeads.filter((l) => l.website_url).length;
+    const withWeb = extractedLeads.filter((l) => l.website_url || l.gmb_website_url).length;
     const withPhone = extractedLeads.filter((l) => l.phone).length;
 
     statWebsites.textContent = withWeb;
@@ -151,7 +156,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <line x1="12" y1="8" x2="12" y2="12"></line>
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
           </svg>
-          <p class="text-xs text-slate-400">Search Google Maps and click Start Scraping.</p>
+          <p class="text-xs text-slate-400">Search Google Maps and click Start Deep Harvester.</p>
         </div>
       `;
       return;
@@ -179,10 +184,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     isScraping = scraping;
     if (isScraping) {
       btnScrapeToggle.className = 'btn btn-danger flex-1';
-      btnScrapeLabel.textContent = 'Stop Scraping';
+      btnScrapeLabel.textContent = 'Stop & Sync Harvester';
+      if (liveInspectBanner) liveInspectBanner.classList.remove('hidden');
     } else {
       btnScrapeToggle.className = 'btn btn-primary flex-1';
-      btnScrapeLabel.textContent = 'Start Scraping';
+      btnScrapeLabel.textContent = 'Start Deep Harvester';
+      if (liveInspectBanner) liveInspectBanner.classList.add('hidden');
     }
   }
 
@@ -212,7 +219,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (!isScraping) {
-      const maxLeads = parseInt(maxLeadsSelect.value, 10) || 30;
+      const maxLeads = parseInt(maxLeadsSelect.value, 10) || 100;
       setScrapingState(true);
       try {
         await chrome.tabs.sendMessage(currentTab.id, {
@@ -241,6 +248,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           renderLeads(res.leads);
         }
       } catch (err) {}
+      // Automatically trigger sync when user clicks Stop & Sync
+      if (extractedLeads.length > 0) {
+        btnSync.click();
+      }
     }
   });
 
@@ -260,7 +271,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Sync to Dashboard API
   btnSync.addEventListener('click', async () => {
     if (extractedLeads.length === 0) {
-      showFeedback('No leads to sync yet. Search Google Maps and click Start Scraping.', false);
+      showFeedback('No leads to sync yet. Search Google Maps and click Start Deep Harvester.', false);
       return;
     }
 
@@ -269,7 +280,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let endpoint = `${rawUrl}/api/leads/sync`;
 
     btnSync.disabled = true;
-    syncLabel.textContent = 'Syncing...';
+    syncLabel.textContent = 'Syncing to Dashboard...';
 
     try {
       let response;
@@ -349,15 +360,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    const headers = ['Business Name', 'Rating', 'Reviews Count', 'Phone', 'Website URL', 'Google Maps URL', 'Status'];
+    const headers = ['Business Name', 'Category', 'Rating', 'Reviews Count', 'Phone', 'Address', 'GMB Website URL', 'Discovered Website', 'Google Maps URL'];
     const rows = extractedLeads.map((l) => [
       `"${(l.business_name || '').replace(/"/g, '""')}"`,
+      `"${(l.category || '').replace(/"/g, '""')}"`,
       l.rating || '',
       l.reviews_count || 0,
       `"${(l.phone || '').replace(/"/g, '""')}"`,
-      `"${(l.website_url || '').replace(/"/g, '""')}"`,
-      `"${(l.maps_url || '').replace(/"/g, '""')}"`,
-      `"${(l.status || 'Open').replace(/"/g, '""')}"`
+      `"${(l.address || '').replace(/"/g, '""')}"`,
+      `"${(l.gmb_website_url || '').replace(/"/g, '""')}"`,
+      `"${(l.discovered_website || l.website_url || '').replace(/"/g, '""')}"`,
+      `"${(l.maps_url || '').replace(/"/g, '""')}"`
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
@@ -374,6 +387,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   chrome.runtime.onMessage.addListener((message) => {
     if (message.type === 'SCRAPE_PROGRESS') {
       statTotal.textContent = message.count;
+      if (liveInspectBanner) {
+        liveInspectBanner.classList.remove('hidden');
+        if (liveInspectCount) liveInspectCount.textContent = `${message.count} / ${message.maxLeads || 100}`;
+        if (message.latestLead) {
+          if (liveInspectName) liveInspectName.textContent = message.latestLead.business_name || 'Inspecting card...';
+          if (liveInspectMeta) {
+            const web = message.latestLead.website_url ? '🌐 ' + message.latestLead.website_url : '🔥 No website';
+            const phone = message.latestLead.phone ? ' • 📞 ' + message.latestLead.phone : '';
+            liveInspectMeta.textContent = `${web}${phone}`;
+          }
+        }
+      }
+
       chrome.storage.local.get(['leadflow_leads'], (res) => {
         if (res && res.leadflow_leads) {
           renderLeads(res.leadflow_leads);
