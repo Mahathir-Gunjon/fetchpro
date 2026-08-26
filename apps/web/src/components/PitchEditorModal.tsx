@@ -107,27 +107,27 @@ export function PitchEditorModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl shadow-black/80 overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-colors">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-600/20">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <span>AI Cold Outreach Pitch</span>
-                <span className="text-[10px] font-semibold text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
+                <span className="text-[10px] font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-500/10 px-2 py-0.5 rounded border border-violet-200 dark:border-violet-500/20">
                   Gemini 2.0
                 </span>
               </h2>
-              <p className="text-xs text-slate-400">Personalized outreach targeting {lead.business_name}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Personalized outreach targeting {lead.business_name}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -140,14 +140,14 @@ export function PitchEditorModal({
             <div
               className={`p-3 rounded-xl border flex items-center gap-2.5 text-xs ${
                 feedback.type === 'success'
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                  : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                  ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300'
               }`}
             >
               {feedback.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0" />
               ) : (
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <AlertCircle className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0" />
               )}
               <span>{feedback.message}</span>
             </div>
@@ -155,9 +155,9 @@ export function PitchEditorModal({
 
           {/* Recipient Email */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-blue-400" />
+                <Mail className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
                 Recipient Email
               </span>
               {lead.audit_data?.extractedEmails && lead.audit_data.extractedEmails.length > 1 && (
@@ -167,7 +167,7 @@ export function PitchEditorModal({
                     <button
                       key={i}
                       onClick={() => setToEmail(em)}
-                      className="text-[10px] text-blue-400 hover:underline bg-blue-500/10 px-1.5 py-0.5 rounded"
+                      className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline bg-blue-50 dark:bg-blue-500/10 px-1.5 py-0.5 rounded"
                     >
                       {em}
                     </button>
@@ -180,32 +180,32 @@ export function PitchEditorModal({
               value={toEmail}
               onChange={(e) => setToEmail(e.target.value)}
               placeholder="e.g. owner@business.com"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-mono"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono transition-all"
             />
           </div>
 
           {/* Subject Line */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Subject Line</label>
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">Subject Line</label>
             <input
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="e.g. Quick question regarding website"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 font-medium transition-all"
             />
           </div>
 
           {/* Email Body */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
                 Email Message (3-4 Sentences)
               </label>
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleCopy}
-                  className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 transition-colors"
+                  className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 flex items-center gap-1 transition-colors"
                 >
                   <Copy className="w-3.5 h-3.5" />
                   <span>{copied ? 'Copied!' : 'Copy'}</span>
@@ -213,7 +213,7 @@ export function PitchEditorModal({
                 <button
                   onClick={handleRegenerate}
                   disabled={isRegenerating}
-                  className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1 transition-colors"
+                  className="text-xs text-violet-600 dark:text-violet-400 hover:text-violet-500 dark:hover:text-violet-300 flex items-center gap-1 transition-colors"
                 >
                   <RotateCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />
                   <span>Regenerate</span>
@@ -224,14 +224,14 @@ export function PitchEditorModal({
               rows={7}
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              className="w-full px-3.5 py-3 rounded-xl bg-slate-950/80 border border-slate-800 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none leading-relaxed"
+              className="w-full px-3.5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 resize-none leading-relaxed transition-all"
             />
           </div>
 
           {/* Lead Context Snippet */}
-          <div className="p-3 rounded-xl bg-slate-950/40 border border-slate-800/60 text-xs text-slate-400 flex items-center justify-between">
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800/60 text-xs text-slate-600 dark:text-slate-400 flex items-center justify-between">
             <div>
-              <span className="font-semibold text-slate-300">{lead.business_name}</span>
+              <span className="font-semibold text-slate-900 dark:text-slate-300">{lead.business_name}</span>
               {lead.phone && <span className="ml-2 font-mono">📞 {lead.phone}</span>}
             </div>
             {lead.website_url && (
@@ -239,7 +239,7 @@ export function PitchEditorModal({
                 href={lead.website_url}
                 target="_blank"
                 rel="noreferrer"
-                className="text-blue-400 hover:underline flex items-center gap-1 truncate max-w-[200px]"
+                className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 truncate max-w-[200px]"
               >
                 <span>{lead.website_url}</span>
                 <ExternalLink className="w-3 h-3" />
@@ -249,10 +249,10 @@ export function PitchEditorModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-800 bg-slate-950/80">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/80">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="px-4 py-2 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
           >
             Cancel
           </button>

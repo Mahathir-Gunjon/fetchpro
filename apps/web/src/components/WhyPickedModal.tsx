@@ -7,7 +7,6 @@ import {
   Sparkles,
   CheckCircle2,
   XCircle,
-  AlertTriangle,
   Flame,
   Globe,
   Share2,
@@ -16,7 +15,6 @@ import {
   Zap,
   Calendar,
   Tag,
-  ExternalLink,
   RotateCw,
 } from 'lucide-react';
 
@@ -63,37 +61,37 @@ export function WhyPickedModal({
   const isNoWebsite = log.qualification_tag === 'NO_WEBSITE' || !lead.website_url;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl shadow-black/80 overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-colors">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-white tracking-tight">{lead.business_name}</h2>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">{lead.business_name}</h2>
                 <span
                   className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${
                     isNoWebsite
-                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                      ? 'bg-rose-50 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/30'
                       : isHot
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                      : 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                      ? 'bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30'
+                      : 'bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30'
                   }`}
                 >
                   QUALIFIED: {log.qualification_tag}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 AI Qualification Log & Transparent Opportunity Reasoning
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -105,70 +103,70 @@ export function WhyPickedModal({
           <div
             className={`p-4 rounded-xl border flex items-start gap-3.5 ${
               isNoWebsite
-                ? 'bg-rose-950/30 border-rose-500/30 text-rose-200'
+                ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-500/30 text-rose-800 dark:text-rose-200'
                 : isHot
-                ? 'bg-amber-950/30 border-amber-500/30 text-amber-200'
-                : 'bg-blue-950/30 border-blue-500/30 text-blue-200'
+                ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-200'
+                : 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-500/30 text-blue-800 dark:text-blue-200'
             }`}
           >
             {isNoWebsite ? (
-              <Flame className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+              <Flame className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
             ) : (
-              <Sparkles className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+              <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             )}
             <div className="flex-1">
               <div className="text-xs font-bold uppercase tracking-wider opacity-80">Primary Qualification Reason</div>
-              <div className="text-sm font-semibold text-white mt-1 leading-snug">{log.primary_reason}</div>
+              <div className="text-sm font-semibold text-slate-900 dark:text-white mt-1 leading-snug">{log.primary_reason}</div>
             </div>
             <div className="text-right shrink-0">
-              <div className="text-[10px] uppercase font-bold text-slate-400">Opportunity Score</div>
-              <div className="text-2xl font-extrabold text-amber-400">{log.score}/100</div>
+              <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Opportunity Score</div>
+              <div className="text-2xl font-extrabold text-amber-600 dark:text-amber-400">{log.score}/100</div>
             </div>
           </div>
 
           {/* Deep Inspection Checks Breakdown */}
           <div className="space-y-2.5">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Deep Verification Checks (Google Maps & Profile DOM)
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {/* 1. GMB Website Button */}
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between text-xs">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <Globe className="w-3.5 h-3.5 text-blue-400" />
-                  <span className="text-slate-300">GMB Header Website Button</span>
+                  <Globe className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
+                  <span className="text-slate-700 dark:text-slate-300">GMB Header Website Button</span>
                 </div>
                 {log.checks.google_maps_website_button ? (
-                  <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
+                  <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
                     <CheckCircle2 className="w-3.5 h-3.5" /> Found
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-rose-400 font-semibold">
+                  <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 font-semibold">
                     <XCircle className="w-3.5 h-3.5" /> Missing
                   </span>
                 )}
               </div>
 
               {/* 2. Web Results Matched */}
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between text-xs">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <Globe className="w-3.5 h-3.5 text-indigo-400" />
-                  <span className="text-slate-300">Bottom Web Results Scraped</span>
+                  <Globe className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                  <span className="text-slate-700 dark:text-slate-300">Bottom Web Results Scraped</span>
                 </div>
-                <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
+                <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Verified
                 </span>
               </div>
 
               {/* 3. Social Media Presence */}
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between text-xs">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <Share2 className="w-3.5 h-3.5 text-pink-400" />
-                  <span className="text-slate-300">Social Profiles Detected</span>
+                  <Share2 className="w-3.5 h-3.5 text-pink-500 dark:text-pink-400" />
+                  <span className="text-slate-700 dark:text-slate-300">Social Profiles Detected</span>
                 </div>
                 {log.checks.facebook_page_found || log.checks.instagram_page_found || log.checks.tiktok_page_found ? (
-                  <span className="text-sky-300 font-medium font-mono text-[11px]">
+                  <span className="text-sky-700 dark:text-sky-300 font-medium font-mono text-[11px]">
                     {[
                       log.checks.facebook_page_found && 'FB',
                       log.checks.instagram_page_found && 'IG',
@@ -183,38 +181,38 @@ export function WhyPickedModal({
               </div>
 
               {/* 4. SSL / HTTPS Certificate */}
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between text-xs">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   {log.checks.ssl_valid ? (
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
                   ) : (
-                    <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                    <ShieldAlert className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
                   )}
-                  <span className="text-slate-300">SSL Certificate (HTTPS)</span>
+                  <span className="text-slate-700 dark:text-slate-300">SSL Certificate (HTTPS)</span>
                 </div>
                 {log.checks.ssl_valid === null ? (
                   <span className="text-slate-400 italic">N/A (No site)</span>
                 ) : log.checks.ssl_valid ? (
-                  <span className="text-emerald-400 font-semibold">Secure</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Secure</span>
                 ) : (
-                  <span className="text-rose-400 font-semibold">⚠️ Insecure / Missing</span>
+                  <span className="text-rose-600 dark:text-rose-400 font-semibold">⚠️ Insecure / Missing</span>
                 )}
               </div>
 
               {/* 5. Mobile PageSpeed */}
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between text-xs">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="text-slate-300">Mobile PageSpeed</span>
+                  <Zap className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+                  <span className="text-slate-700 dark:text-slate-300">Mobile PageSpeed</span>
                 </div>
                 {log.checks.mobile_speed_score !== null ? (
                   <span
                     className={`font-bold ${
                       log.checks.mobile_speed_score < 50
-                        ? 'text-rose-400'
+                        ? 'text-rose-600 dark:text-rose-400'
                         : log.checks.mobile_speed_score <= 70
-                        ? 'text-amber-400'
-                        : 'text-emerald-400'
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-emerald-600 dark:text-emerald-400'
                     }`}
                   >
                     {log.checks.mobile_speed_score}/100
@@ -225,15 +223,15 @@ export function WhyPickedModal({
               </div>
 
               {/* 6. Copyright Year */}
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between text-xs">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-3.5 h-3.5 text-sky-400" />
-                  <span className="text-slate-300">Footer Copyright Year</span>
+                  <Calendar className="w-3.5 h-3.5 text-sky-500 dark:text-sky-400" />
+                  <span className="text-slate-700 dark:text-slate-300">Footer Copyright Year</span>
                 </div>
                 {log.checks.copyright_year ? (
                   <span
                     className={`font-semibold ${
-                      log.checks.copyright_year <= 2023 ? 'text-rose-400' : 'text-emerald-400'
+                      log.checks.copyright_year <= 2023 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
                     }`}
                   >
                     {log.checks.copyright_year} {log.checks.copyright_year <= 2023 ? '(Backdated)' : ''}
@@ -244,28 +242,28 @@ export function WhyPickedModal({
               </div>
 
               {/* 7. Local Schema (JSON-LD) */}
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between text-xs sm:col-span-2">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-xs sm:col-span-2">
                 <div className="flex items-center gap-2">
-                  <Tag className="w-3.5 h-3.5 text-purple-400" />
-                  <span className="text-slate-300">LocalBusiness Schema Markup</span>
+                  <Tag className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400" />
+                  <span className="text-slate-700 dark:text-slate-300">LocalBusiness Schema Markup</span>
                 </div>
                 {log.checks.missing_local_schema === null ? (
                   <span className="text-slate-400 italic">N/A</span>
                 ) : log.checks.missing_local_schema ? (
-                  <span className="text-amber-400 font-semibold">⚠️ Missing JSON-LD Schema</span>
+                  <span className="text-amber-600 dark:text-amber-400 font-semibold">⚠️ Missing JSON-LD Schema</span>
                 ) : (
-                  <span className="text-emerald-400 font-semibold">✓ Local Schema Configured</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">✓ Local Schema Configured</span>
                 )}
               </div>
             </div>
           </div>
 
           {/* Agency Pitch Recommendation */}
-          <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-800/60 space-y-1 text-xs">
-            <span className="font-bold text-slate-300 uppercase tracking-wider block text-[11px]">
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800/60 space-y-1 text-xs">
+            <span className="font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block text-[11px]">
               Recommended Agency Angle:
             </span>
-            <p className="text-slate-300 leading-relaxed">
+            <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
               {isNoWebsite
                 ? `Pitch ${lead.business_name} an instant mobile booking website to stop losing local Google Maps searchers to nearby competitors.`
                 : `Highlight their ${log.checks.mobile_speed_score || 35}/100 mobile latency & missing schema with a 2-minute video teardown offer.`}
@@ -274,10 +272,10 @@ export function WhyPickedModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-800 bg-slate-950/80">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/80">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="px-4 py-2 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
           >
             Close
           </button>
@@ -287,9 +285,9 @@ export function WhyPickedModal({
               <button
                 onClick={() => onRunAudit(lead.id)}
                 disabled={isAuditing}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 transition-all disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50"
               >
-                <RotateCw className={`w-3.5 h-3.5 ${isAuditing ? 'animate-spin text-blue-400' : ''}`} />
+                <RotateCw className={`w-3.5 h-3.5 ${isAuditing ? 'animate-spin text-blue-500' : ''}`} />
                 <span>Re-Audit</span>
               </button>
             )}

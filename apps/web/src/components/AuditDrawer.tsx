@@ -20,7 +20,6 @@ import {
   Check,
   Activity,
   Layers,
-  ArrowRight,
   Flame,
 } from 'lucide-react';
 
@@ -83,7 +82,6 @@ export function AuditDrawer({
   const pageSpeedScore = audit?.pageSpeed?.score;
   const webVitals = audit?.pageSpeed?.webVitals;
   const socials = lead.social_profiles || lead.socials || audit?.socials;
-  const webResults = lead.web_results_links || [];
   const primaryReason =
     lead.qualification_log?.primary_reason ||
     lead.opportunity_reasons?.[0] ||
@@ -130,31 +128,31 @@ export function AuditDrawer({
     <div className="fixed inset-0 z-50 overflow-hidden">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm transition-opacity animate-in fade-in"
+        className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity animate-in fade-in"
         onClick={onClose}
       />
 
       {/* Slide-Over Panel */}
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-2xl bg-slate-900 border-l border-slate-800/90 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-300">
+        <div className="w-screen max-w-2xl bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800/90 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-300 transition-colors">
           {/* Header */}
-          <div className="px-6 py-5 border-b border-slate-800/80 bg-slate-950/70 flex items-center justify-between">
+          <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/70 flex items-center justify-between">
             <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-10 h-10 rounded-xl bg-blue-600/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-600/15 border border-blue-200 dark:border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
                 <Globe className="w-5 h-5" />
               </div>
               <div className="truncate">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-white truncate">
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-white truncate">
                     {lead.business_name}
                   </h2>
                   {lead.category && (
-                    <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
                       {lead.category}
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-400 font-mono truncate mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-mono truncate mt-0.5">
                   {lead.website_url || lead.gmb_website_url || lead.discovered_website || 'No website registered'}
                 </p>
               </div>
@@ -165,16 +163,16 @@ export function AuditDrawer({
                 <button
                   onClick={() => onAuditAgain(lead.id)}
                   disabled={isAuditing}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all disabled:opacity-50"
                   title="Run Real-time Audit"
                 >
-                  <RotateCw className={`w-3.5 h-3.5 ${isAuditing ? 'animate-spin text-blue-400' : ''}`} />
+                  <RotateCw className={`w-3.5 h-3.5 ${isAuditing ? 'animate-spin text-blue-500' : ''}`} />
                   <span>{isAuditing ? 'Auditing...' : 'Re-Audit'}</span>
                 </button>
               )}
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="p-2 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 title="Close drawer"
               >
                 <X className="w-5 h-5" />
@@ -183,26 +181,26 @@ export function AuditDrawer({
           </div>
 
           {/* Drawer Body */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-slate-700">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
             {/* 1. Executive Summary Card */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-slate-900 to-slate-900 border border-amber-500/30">
+            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-gradient-to-br dark:from-amber-500/10 dark:via-slate-900 dark:to-slate-900 border border-amber-200 dark:border-amber-500/30 shadow-xs">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                  <Flame className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                  <Flame className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   Executive Lead Qualification Reason
                 </span>
-                <span className="text-xs font-mono font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
+                <span className="text-xs font-mono font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-300 dark:border-amber-500/30">
                   Opp Score: {lead.opportunity_score || (lead.website_url ? 85 : 95)}/100
                 </span>
               </div>
-              <p className="text-sm font-semibold text-white leading-relaxed">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white leading-relaxed">
                 {primaryReason}
               </p>
               {lead.opportunity_reasons && lead.opportunity_reasons.length > 1 && (
-                <ul className="mt-3 space-y-1.5 pt-2 border-t border-amber-500/20 text-xs text-slate-300">
+                <ul className="mt-3 space-y-1.5 pt-2 border-t border-amber-200 dark:border-amber-500/20 text-xs text-slate-700 dark:text-slate-300">
                   {lead.opportunity_reasons.map((r, idx) => (
                     <li key={idx} className="flex items-start gap-2">
-                      <span className="text-amber-400 font-bold">•</span>
+                      <span className="text-amber-600 dark:text-amber-400 font-bold">•</span>
                       <span>{r}</span>
                     </li>
                   ))}
@@ -212,23 +210,23 @@ export function AuditDrawer({
 
             {/* 2. Visual Checklist & Performance Grid */}
             <div className="space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Activity className="w-3.5 h-3.5 text-blue-400" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 Website Health & Technical SEO Checklist
               </h3>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {/* Overall Health Score */}
-                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 flex flex-col justify-between">
-                  <span className="text-[11px] font-semibold text-slate-400">Health Score</span>
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Health Score</span>
                   <div className="mt-2 flex items-baseline gap-1">
                     <span
                       className={`text-2xl font-extrabold font-mono ${
                         healthScore < 50
-                          ? 'text-rose-400'
+                          ? 'text-rose-600 dark:text-rose-400'
                           : healthScore < 75
-                          ? 'text-amber-400'
-                          : 'text-emerald-400'
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-emerald-600 dark:text-emerald-400'
                       }`}
                     >
                       {healthScore}
@@ -238,17 +236,17 @@ export function AuditDrawer({
                 </div>
 
                 {/* PageSpeed Performance */}
-                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 flex flex-col justify-between">
-                  <span className="text-[11px] font-semibold text-slate-400">Mobile Speed</span>
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Mobile Speed</span>
                   <div className="mt-2 flex items-baseline gap-1">
                     <span
                       className={`text-2xl font-extrabold font-mono ${
                         typeof pageSpeedScore === 'number'
                           ? pageSpeedScore < 50
-                            ? 'text-rose-400'
+                            ? 'text-rose-600 dark:text-rose-400'
                             : pageSpeedScore <= 70
-                            ? 'text-amber-400'
-                            : 'text-emerald-400'
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-emerald-600 dark:text-emerald-400'
                           : 'text-slate-400'
                       }`}
                     >
@@ -259,17 +257,17 @@ export function AuditDrawer({
                 </div>
 
                 {/* SSL Security */}
-                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 flex flex-col justify-between">
-                  <span className="text-[11px] font-semibold text-slate-400">SSL Certificate</span>
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">SSL Certificate</span>
                   <div className="mt-2 flex items-center gap-1.5">
                     {audit?.ssl.valid ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400">
-                        <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                        <ShieldCheck className="w-4 h-4 text-emerald-500" />
                         Valid HTTPS
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-400">
-                        <ShieldAlert className="w-4 h-4 text-rose-400" />
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-400">
+                        <ShieldAlert className="w-4 h-4 text-rose-500" />
                         Not Secure
                       </span>
                     )}
@@ -277,17 +275,17 @@ export function AuditDrawer({
                 </div>
 
                 {/* Mobile Viewport */}
-                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 flex flex-col justify-between">
-                  <span className="text-[11px] font-semibold text-slate-400">Mobile Layout</span>
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Mobile Layout</span>
                   <div className="mt-2 flex items-center gap-1.5">
                     {audit?.mobileResponsive.isMobileFriendly !== false ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400">
-                        <Smartphone className="w-4 h-4 text-emerald-400" />
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                        <Smartphone className="w-4 h-4 text-emerald-500" />
                         Responsive
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-400">
-                        <Smartphone className="w-4 h-4 text-rose-400" />
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-400">
+                        <Smartphone className="w-4 h-4 text-rose-500" />
                         Broken Viewport
                       </span>
                     )}
@@ -298,27 +296,27 @@ export function AuditDrawer({
               {/* Core Web Vitals & Copyright Row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Core Web Vitals */}
-                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                    <Zap className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                     Core Web Vitals Breakdown
                   </span>
                   <div className="grid grid-cols-3 gap-2 text-center pt-1">
-                    <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">
-                      <span className="text-[10px] text-slate-400 block">LCP (Load)</span>
-                      <span className="text-xs font-bold font-mono text-white">
+                    <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block">LCP (Load)</span>
+                      <span className="text-xs font-bold font-mono text-slate-900 dark:text-white">
                         {webVitals?.lcp || audit?.pageSpeed?.lcp || '5.8 s'}
                       </span>
                     </div>
-                    <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">
-                      <span className="text-[10px] text-slate-400 block">FCP (Paint)</span>
-                      <span className="text-xs font-bold font-mono text-white">
+                    <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block">FCP (Paint)</span>
+                      <span className="text-xs font-bold font-mono text-slate-900 dark:text-white">
                         {webVitals?.fcp || audit?.pageSpeed?.fcp || '3.2 s'}
                       </span>
                     </div>
-                    <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">
-                      <span className="text-[10px] text-slate-400 block">CLS (Shift)</span>
-                      <span className="text-xs font-bold font-mono text-white">
+                    <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block">CLS (Shift)</span>
+                      <span className="text-xs font-bold font-mono text-slate-900 dark:text-white">
                         {webVitals?.cls || audit?.pageSpeed?.cls || '0.22'}
                       </span>
                     </div>
@@ -326,29 +324,29 @@ export function AuditDrawer({
                 </div>
 
                 {/* Footer Copyright & Schema */}
-                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-sky-400" />
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
                     Copyright & Schema Signals
                   </span>
                   <div className="space-y-1.5 pt-1 text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Footer Copyright:</span>
+                      <span className="text-slate-500 dark:text-slate-400">Footer Copyright:</span>
                       <span
                         className={`font-mono font-bold px-2 py-0.5 rounded ${
                           audit?.copyright.isOutdated
-                            ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
-                            : 'bg-slate-800 text-slate-300'
+                            ? 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30'
+                            : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                         }`}
                       >
                         {audit?.copyright.detectedYear ? `© ${audit.copyright.detectedYear} - Backdated` : 'Not Declared'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400">schema.org LocalBusiness:</span>
+                      <span className="text-slate-500 dark:text-slate-400">schema.org LocalBusiness:</span>
                       <span
                         className={`font-semibold ${
-                          audit?.localSeo?.hasLocalSchema ? 'text-emerald-400' : 'text-amber-400'
+                          audit?.localSeo?.hasLocalSchema ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
                         }`}
                       >
                         {audit?.localSeo?.hasLocalSchema ? '✅ Implemented' : '⚠️ Missing JSON-LD'}
@@ -361,12 +359,12 @@ export function AuditDrawer({
 
             {/* 3. Discovered Online Links & Social Profiles */}
             <div className="space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-sky-400" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
                 Discovered Online Links & Social Profiles
               </h3>
 
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3">
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-3">
                 {/* Social Badges */}
                 <div className="flex items-center gap-2 flex-wrap">
                   {socials?.facebook && (
@@ -374,7 +372,7 @@ export function AuditDrawer({
                       href={socials.facebook}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-300 bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/30 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-600/15 hover:bg-blue-200 dark:hover:bg-blue-600/25 border border-blue-200 dark:border-blue-500/30 transition-colors"
                     >
                       <span>Facebook</span>
                       <ExternalLink className="w-3 h-3" />
@@ -385,7 +383,7 @@ export function AuditDrawer({
                       href={socials.instagram}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-pink-300 bg-pink-600/15 hover:bg-pink-600/25 border border-pink-500/30 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-pink-700 dark:text-pink-300 bg-pink-100 dark:bg-pink-600/15 hover:bg-pink-200 dark:hover:bg-pink-600/25 border border-pink-200 dark:border-pink-500/30 transition-colors"
                     >
                       <span>Instagram</span>
                       <ExternalLink className="w-3 h-3" />
@@ -396,7 +394,7 @@ export function AuditDrawer({
                       href={socials.yelp}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-300 bg-rose-600/15 hover:bg-rose-600/25 border border-rose-500/30 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-600/15 hover:bg-rose-200 dark:hover:bg-rose-600/25 border border-rose-200 dark:border-rose-500/30 transition-colors"
                     >
                       <span>Yelp Listing</span>
                       <ExternalLink className="w-3 h-3" />
@@ -407,7 +405,7 @@ export function AuditDrawer({
                       href={socials.tiktok}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-teal-300 bg-teal-600/15 hover:bg-teal-600/25 border border-teal-500/30 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-600/15 hover:bg-teal-200 dark:hover:bg-teal-600/25 border border-teal-200 dark:border-teal-500/30 transition-colors"
                     >
                       <span>TikTok</span>
                       <ExternalLink className="w-3 h-3" />
@@ -418,7 +416,7 @@ export function AuditDrawer({
                       href={socials.mapquest}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-amber-300 bg-amber-600/15 hover:bg-amber-600/25 border border-amber-500/30 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-600/15 hover:bg-amber-200 dark:hover:bg-amber-600/25 border border-amber-200 dark:border-amber-500/30 transition-colors"
                     >
                       <span>MapQuest</span>
                       <ExternalLink className="w-3 h-3" />
@@ -429,49 +427,49 @@ export function AuditDrawer({
                       href={socials.linkedin}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-sky-300 bg-sky-600/15 hover:bg-sky-600/25 border border-sky-500/30 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-600/15 hover:bg-sky-200 dark:hover:bg-sky-600/25 border border-sky-200 dark:border-sky-500/30 transition-colors"
                     >
                       <span>LinkedIn</span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
                   {!socials?.facebook && !socials?.instagram && !socials?.yelp && !socials?.tiktok && (
-                    <span className="text-xs text-slate-400 italic">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 italic">
                       Zero social presence detected (High opportunity for social setup & local pack pitch).
                     </span>
                   )}
                 </div>
 
                 {/* Extracted Direct Contact Details */}
-                <div className="pt-3 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="pt-3 border-t border-slate-200 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                   {lead.phone && (
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800">
-                      <span className="text-slate-400 flex items-center gap-1.5">
-                        <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                      <span className="text-slate-700 dark:text-slate-400 flex items-center gap-1.5">
+                        <Phone className="w-3.5 h-3.5 text-emerald-500" />
                         {lead.phone}
                       </span>
                       <button
                         onClick={() => copyToClipboard(lead.phone!, 'phone')}
-                        className="text-slate-400 hover:text-white p-1"
+                        className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1"
                         title="Copy phone"
                       >
-                        {copiedField === 'phone' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copiedField === 'phone' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                       </button>
                     </div>
                   )}
 
                   {recipientEmail && (
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800">
-                      <span className="text-slate-300 font-mono truncate max-w-[200px] flex items-center gap-1.5">
-                        <Mail className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                      <span className="text-slate-800 dark:text-slate-300 font-mono truncate max-w-[200px] flex items-center gap-1.5">
+                        <Mail className="w-3.5 h-3.5 text-sky-500 shrink-0" />
                         {recipientEmail}
                       </span>
                       <button
                         onClick={() => copyToClipboard(recipientEmail, 'email')}
-                        className="text-slate-400 hover:text-white p-1 shrink-0"
+                        className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 shrink-0"
                         title="Copy email"
                       >
-                        {copiedField === 'email' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copiedField === 'email' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                       </button>
                     </div>
                   )}
@@ -482,15 +480,15 @@ export function AuditDrawer({
             {/* 4. AI Cold Email Editor (Send via Resend) */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
                   AI Personalized Cold Outreach Pitch (Resend)
                 </h3>
                 {onRegeneratePitch && (
                   <button
                     onClick={handleRegenerate}
                     disabled={isRegenerating}
-                    className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1 transition-colors disabled:opacity-50"
+                    className="text-xs text-sky-600 dark:text-sky-400 hover:text-sky-500 dark:hover:text-sky-300 flex items-center gap-1 transition-colors disabled:opacity-50 font-medium"
                   >
                     <RotateCw className={`w-3 h-3 ${isRegenerating ? 'animate-spin' : ''}`} />
                     <span>Regenerate Pitch</span>
@@ -498,9 +496,9 @@ export function AuditDrawer({
                 )}
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-3 shadow-inner">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 space-y-3 shadow-inner">
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-400 block mb-1">
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
                     Recipient Email
                   </label>
                   <input
@@ -508,36 +506,36 @@ export function AuditDrawer({
                     value={recipientEmail}
                     onChange={(e) => setRecipientEmail(e.target.value)}
                     placeholder="e.g. contact@business.com"
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500 font-mono transition-colors"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono transition-colors"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-400 block mb-1">
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
                     Subject Line
                   </label>
                   <input
                     type="text"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-400 block mb-1">
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
                     3-Sentence Outreach Pitch Body
                   </label>
                   <textarea
                     rows={5}
                     value={pitchBody}
                     onChange={(e) => setPitchBody(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-blue-500 leading-relaxed resize-none transition-colors"
+                    className="w-full px-3 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-blue-500 leading-relaxed resize-none transition-colors"
                   />
                 </div>
 
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
                     Dispatches directly via configured Resend API
                   </span>
                   <button

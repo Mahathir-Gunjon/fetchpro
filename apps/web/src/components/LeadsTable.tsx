@@ -17,10 +17,8 @@ import {
   Sparkles,
   Download,
   Trash2,
-  Share2,
   Copy,
   Check,
-  SlidersHorizontal,
   ChevronDown,
 } from 'lucide-react';
 import { DashboardViewTab } from './Sidebar';
@@ -178,19 +176,19 @@ export function LeadsTable({
   };
 
   return (
-    <div className="bg-slate-900/80 border border-slate-800/90 rounded-2xl shadow-xl backdrop-blur-md overflow-hidden flex flex-col w-full">
+    <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/90 rounded-2xl shadow-xl backdrop-blur-md overflow-hidden flex flex-col w-full transition-colors duration-200">
       {/* 1. Header & Dual-Tab Bar */}
-      <div className="p-4 sm:p-5 border-b border-slate-800/80 flex flex-col gap-4">
+      <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800/80 flex flex-col gap-4">
         {/* Top Controls Row */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           {/* Dual Tabs */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-950/80 rounded-xl border border-slate-800/80 w-fit">
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-950/80 rounded-xl border border-slate-200 dark:border-slate-800/80 w-fit">
             <button
               onClick={() => onTabChange && onTabChange('all')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 activeTab === 'all'
                   ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/25'
-                  : 'text-slate-400 hover:text-slate-200'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
               <span>All Pipeline Leads</span>
@@ -204,7 +202,7 @@ export function LeadsTable({
               className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 activeTab === 'hot'
                   ? 'bg-amber-500 text-slate-950 shadow-sm shadow-amber-500/25 font-bold'
-                  : 'text-slate-400 hover:text-slate-200'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
               <Flame className="w-3.5 h-3.5 text-amber-950" />
@@ -240,7 +238,7 @@ export function LeadsTable({
 
                 <button
                   onClick={handleBatchDeleteClick}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 border border-rose-200 dark:border-rose-500/20 transition-all"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Delete ({selectedIds.size})</span>
@@ -251,9 +249,9 @@ export function LeadsTable({
             {onExportCsv && (
               <button
                 onClick={onExportCsv}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700/80 border border-slate-700/60 transition-all"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700/60 transition-all"
               >
-                <Download className="w-3.5 h-3.5 text-slate-400" />
+                <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                 <span>Export CSV</span>
               </button>
             )}
@@ -264,25 +262,25 @@ export function LeadsTable({
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
           {/* Search Input */}
           <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search by business name, city, phone, domain..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3.5 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+              className="w-full pl-9 pr-3.5 py-2 bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
             {/* Quick Filter Pills */}
-            <div className="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800">
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950/60 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
               <button
                 onClick={() => setQuickFilter('all')}
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
                   quickFilter === 'all'
-                    ? 'bg-slate-800 text-white font-semibold'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
                 All
@@ -291,8 +289,8 @@ export function LeadsTable({
                 onClick={() => setQuickFilter('no_website')}
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
                   quickFilter === 'no_website'
-                    ? 'bg-rose-500/20 text-rose-400 font-semibold border border-rose-500/30'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-semibold border border-rose-200 dark:border-rose-500/30'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
                 No Website
@@ -301,8 +299,8 @@ export function LeadsTable({
                 onClick={() => setQuickFilter('backdated')}
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
                   quickFilter === 'backdated'
-                    ? 'bg-amber-500/20 text-amber-400 font-semibold border border-amber-500/30'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold border border-amber-200 dark:border-amber-500/30'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
                 Backdated Site
@@ -311,8 +309,8 @@ export function LeadsTable({
                 onClick={() => setQuickFilter('slow_speed')}
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
                   quickFilter === 'slow_speed'
-                    ? 'bg-indigo-500/20 text-indigo-400 font-semibold border border-indigo-500/30'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-semibold border border-indigo-200 dark:border-indigo-500/30'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
                 Poor Speed (&lt;50)
@@ -326,7 +324,7 @@ export function LeadsTable({
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
                   aria-label="Filter by business category"
-                  className="appearance-none pl-3 pr-8 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-300 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
+                  className="appearance-none pl-3 pr-8 py-2 bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
                 >
                   <option value="all">All Categories ({categories.length})</option>
                   {categories.map((cat) => (
@@ -335,7 +333,7 @@ export function LeadsTable({
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             )}
           </div>
@@ -346,12 +344,12 @@ export function LeadsTable({
       <div className="overflow-x-auto w-full">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="bg-slate-950/60 border-b border-slate-800 text-slate-400 uppercase font-semibold text-[11px] tracking-wider select-none">
+            <tr className="bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase font-semibold text-[11px] tracking-wider select-none">
               <th className="py-3.5 px-4 w-10">
                 <button
                   onClick={handleSelectAll}
                   aria-label="Select all leads"
-                  className="text-slate-400 hover:text-white transition-colors"
+                  className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
                 >
                   {selectedIds.size > 0 && selectedIds.size === filteredLeads.length ? (
                     <CheckSquare className="w-4 h-4 text-blue-500" />
@@ -367,17 +365,17 @@ export function LeadsTable({
               <th className="py-3.5 px-4 text-right min-w-[190px]">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/60">
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
             {filteredLeads.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-16 text-center text-slate-400">
+                <td colSpan={6} className="py-16 text-center text-slate-500 dark:text-slate-400">
                   <div className="max-w-sm mx-auto flex flex-col items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-slate-500">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500">
                       <Search className="w-6 h-6" />
                     </div>
                     <div>
-                      <p className="font-semibold text-slate-200 text-sm">No leads match your filter</p>
-                      <p className="text-xs text-slate-400 mt-1">
+                      <p className="font-semibold text-slate-900 dark:text-slate-200 text-sm">No leads match your filter</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                         Try resetting your search query or trigger the Chrome Harvester to scrape fresh leads from Google Maps.
                       </p>
                     </div>
@@ -407,8 +405,8 @@ export function LeadsTable({
                 return (
                   <tr
                     key={lead.id}
-                    className={`hover:bg-slate-800/40 transition-colors group ${
-                      isSelected ? 'bg-blue-950/20' : ''
+                    className={`hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group ${
+                      isSelected ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''
                     }`}
                   >
                     {/* Checkbox */}
@@ -416,7 +414,7 @@ export function LeadsTable({
                       <button
                         onClick={() => toggleSelect(lead.id)}
                         aria-label={`Select ${lead.business_name}`}
-                        className="text-slate-500 hover:text-white transition-colors mt-0.5"
+                        className="text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors mt-0.5"
                       >
                         {isSelected ? (
                           <CheckSquare className="w-4 h-4 text-blue-500" />
@@ -429,18 +427,18 @@ export function LeadsTable({
                     {/* Business Info */}
                     <td className="py-4 px-4 align-top space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-slate-100 text-sm tracking-tight">
+                        <span className="font-bold text-slate-900 dark:text-slate-100 text-sm tracking-tight">
                           {lead.business_name}
                         </span>
                         {lead.category && (
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/60">
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60">
                             {lead.category}
                           </span>
                         )}
                         {lead.is_qualified && (
                           <button
                             onClick={() => onOpenWhyPicked(lead)}
-                            className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-colors"
+                            className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/25 transition-colors"
                           >
                             <Flame className="w-3 h-3" />
                             <span>High Intent</span>
@@ -449,9 +447,9 @@ export function LeadsTable({
                       </div>
 
                       {/* Reviews & Rating */}
-                      <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+                      <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-[11px]">
                         {lead.rating > 0 && (
-                          <span className="text-amber-400 font-bold flex items-center gap-1">
+                          <span className="text-amber-500 dark:text-amber-400 font-bold flex items-center gap-1">
                             ★ {lead.rating.toFixed(1)}
                           </span>
                         )}
@@ -463,7 +461,7 @@ export function LeadsTable({
                             href={lead.maps_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-sky-400 hover:text-sky-300 inline-flex items-center gap-0.5 ml-1"
+                            className="text-sky-600 dark:text-sky-400 hover:underline inline-flex items-center gap-0.5 ml-1"
                           >
                             <span>Google Maps</span>
                             <ExternalLink className="w-2.5 h-2.5" />
@@ -472,7 +470,7 @@ export function LeadsTable({
                       </div>
 
                       {lead.address && (
-                        <p className="text-[11px] text-slate-400 line-clamp-1 max-w-xs">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 max-w-xs">
                           {lead.address}
                         </p>
                       )}
@@ -488,11 +486,11 @@ export function LeadsTable({
                               href={targetUrl}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-blue-400 hover:text-blue-300 font-medium text-xs truncate max-w-[170px] inline-block"
+                              className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-xs truncate max-w-[170px] inline-block"
                             >
                               {targetUrl.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
                             </a>
-                            <ExternalLink className="w-2.5 h-2.5 text-slate-500" />
+                            <ExternalLink className="w-2.5 h-2.5 text-slate-400 dark:text-slate-500" />
                           </div>
 
                           {/* Circular Speed Score Badge + SSL + Copyright */}
@@ -501,19 +499,19 @@ export function LeadsTable({
                               <span
                                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-bold border ${
                                   pageSpeedScore < 50
-                                    ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                                    ? 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30'
                                     : pageSpeedScore < 75
-                                    ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                                    : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                    ? 'bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30'
+                                    : 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30'
                                 }`}
                               >
                                 <span
                                   className={`w-1.5 h-1.5 rounded-full ${
                                     pageSpeedScore < 50
-                                      ? 'bg-rose-400'
+                                      ? 'bg-rose-500'
                                       : pageSpeedScore < 75
-                                      ? 'bg-amber-400'
-                                      : 'bg-emerald-400'
+                                      ? 'bg-amber-500'
+                                      : 'bg-emerald-500'
                                   }`}
                                 ></span>
                                 Speed: {pageSpeedScore}/100
@@ -522,16 +520,16 @@ export function LeadsTable({
                               <span
                                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-bold border ${
                                   healthScore < 50
-                                    ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                                    ? 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30'
                                     : healthScore < 75
-                                    ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                                    : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                    ? 'bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30'
+                                    : 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30'
                                 }`}
                               >
                                 Health: {healthScore}/100
                               </span>
                             ) : (
-                              <span className="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md">
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
                                 Un-audited
                               </span>
                             )}
@@ -541,8 +539,8 @@ export function LeadsTable({
                                 title={hasSsl ? 'Valid HTTPS SSL Certificate' : 'Insecure HTTP (No SSL)'}
                                 className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${
                                   hasSsl
-                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                    : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                                    ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20'
+                                    : 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30'
                                 }`}
                               >
                                 {hasSsl ? (
@@ -559,8 +557,8 @@ export function LeadsTable({
                                 title={`Detected Copyright: ${copyrightYear}`}
                                 className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono border ${
                                   copyrightYear <= 2022
-                                    ? 'bg-rose-500/15 text-rose-400 border-rose-500/30 font-bold'
-                                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                                    ? 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30 font-bold'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                                 }`}
                               >
                                 <Calendar className="w-3 h-3" />
@@ -571,10 +569,10 @@ export function LeadsTable({
                         </div>
                       ) : (
                         <div className="space-y-1">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30 shadow-sm shadow-rose-500/10">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 shadow-sm">
                             <span>NO WEBSITE (HIGH OPPORTUNITY)</span>
                           </span>
-                          <p className="text-[11px] text-slate-400">
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
                             Candidate for high-converting custom website design.
                           </p>
                         </div>
@@ -599,7 +597,7 @@ export function LeadsTable({
                               target="_blank"
                               rel="noreferrer"
                               title={`Facebook: ${socials.facebook}`}
-                              className="px-2 py-1 rounded-md bg-blue-600/15 hover:bg-blue-600/30 text-blue-400 border border-blue-600/25 text-[10px] font-bold transition-colors"
+                              className="px-2 py-1 rounded-md bg-blue-50 dark:bg-blue-600/15 hover:bg-blue-100 dark:hover:bg-blue-600/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-600/25 text-[10px] font-bold transition-colors"
                             >
                               FB
                             </a>
@@ -610,7 +608,7 @@ export function LeadsTable({
                               target="_blank"
                               rel="noreferrer"
                               title={`Instagram: ${socials.instagram}`}
-                              className="px-2 py-1 rounded-md bg-pink-600/15 hover:bg-pink-600/30 text-pink-400 border border-pink-600/25 text-[10px] font-bold transition-colors"
+                              className="px-2 py-1 rounded-md bg-pink-50 dark:bg-pink-600/15 hover:bg-pink-100 dark:hover:bg-pink-600/30 text-pink-600 dark:text-pink-400 border border-pink-200 dark:border-pink-600/25 text-[10px] font-bold transition-colors"
                             >
                               IG
                             </a>
@@ -621,7 +619,7 @@ export function LeadsTable({
                               target="_blank"
                               rel="noreferrer"
                               title={`Yelp: ${socials.yelp}`}
-                              className="px-2 py-1 rounded-md bg-red-600/15 hover:bg-red-600/30 text-red-400 border border-red-600/25 text-[10px] font-bold transition-colors"
+                              className="px-2 py-1 rounded-md bg-red-50 dark:bg-red-600/15 hover:bg-red-100 dark:hover:bg-red-600/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-600/25 text-[10px] font-bold transition-colors"
                             >
                               Yelp
                             </a>
@@ -632,7 +630,7 @@ export function LeadsTable({
                               target="_blank"
                               rel="noreferrer"
                               title={`MapQuest: ${socials.mapquest}`}
-                              className="px-2 py-1 rounded-md bg-emerald-600/15 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-600/25 text-[10px] font-bold transition-colors"
+                              className="px-2 py-1 rounded-md bg-emerald-50 dark:bg-emerald-600/15 hover:bg-emerald-100 dark:hover:bg-emerald-600/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-600/25 text-[10px] font-bold transition-colors"
                             >
                               MQ
                             </a>
@@ -643,7 +641,7 @@ export function LeadsTable({
                               target="_blank"
                               rel="noreferrer"
                               title={`YellowPages: ${socials.yellowpages}`}
-                              className="px-2 py-1 rounded-md bg-yellow-600/15 hover:bg-yellow-600/30 text-yellow-400 border border-yellow-600/25 text-[10px] font-bold transition-colors"
+                              className="px-2 py-1 rounded-md bg-yellow-50 dark:bg-yellow-600/15 hover:bg-yellow-100 dark:hover:bg-yellow-600/30 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-600/25 text-[10px] font-bold transition-colors"
                             >
                               YP
                             </a>
@@ -654,7 +652,7 @@ export function LeadsTable({
                               target="_blank"
                               rel="noreferrer"
                               title={`TikTok: ${socials.tiktok}`}
-                              className="px-2 py-1 rounded-md bg-slate-700/60 hover:bg-slate-700 text-slate-200 border border-slate-600 text-[10px] font-bold transition-colors"
+                              className="px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 text-[10px] font-bold transition-colors"
                             >
                               TikTok
                             </a>
@@ -665,14 +663,14 @@ export function LeadsTable({
                               target="_blank"
                               rel="noreferrer"
                               title={`LinkedIn: ${socials.linkedin}`}
-                              className="px-2 py-1 rounded-md bg-sky-600/15 hover:bg-sky-600/30 text-sky-400 border border-sky-600/25 text-[10px] font-bold transition-colors"
+                              className="px-2 py-1 rounded-md bg-sky-50 dark:bg-sky-600/15 hover:bg-sky-100 dark:hover:bg-sky-600/30 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-600/25 text-[10px] font-bold transition-colors"
                             >
                               IN
                             </a>
                           )}
                         </div>
                       ) : (
-                        <span className="text-[11px] text-slate-500 italic">
+                        <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">
                           No direct socials detected
                         </span>
                       )}
@@ -681,16 +679,16 @@ export function LeadsTable({
                     {/* Contact Info */}
                     <td className="py-4 px-4 align-top space-y-1.5">
                       {lead.phone ? (
-                        <div className="flex items-center gap-1.5 text-slate-300">
+                        <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
                           <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                           <span className="font-mono text-xs">{lead.phone}</span>
                           <button
                             onClick={() => handleCopy(lead.phone!, `phone_${lead.id}`)}
                             title="Copy phone"
-                            className="text-slate-500 hover:text-slate-300 p-0.5"
+                            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-0.5"
                           >
                             {copiedField === `phone_${lead.id}` ? (
-                              <Check className="w-3 h-3 text-emerald-400" />
+                              <Check className="w-3 h-3 text-emerald-500 dark:text-emerald-400" />
                             ) : (
                               <Copy className="w-3 h-3" />
                             )}
@@ -701,7 +699,7 @@ export function LeadsTable({
                       )}
 
                       {lead.email || lead.audit_data?.extractedEmails?.[0] ? (
-                        <div className="flex items-center gap-1.5 text-slate-300">
+                        <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
                           <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                           <span className="text-xs truncate max-w-[140px]">
                             {lead.email || lead.audit_data?.extractedEmails?.[0]}
@@ -714,10 +712,10 @@ export function LeadsTable({
                               )
                             }
                             title="Copy email"
-                            className="text-slate-500 hover:text-slate-300 p-0.5"
+                            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-0.5"
                           >
                             {copiedField === `email_${lead.id}` ? (
-                              <Check className="w-3 h-3 text-emerald-400" />
+                              <Check className="w-3 h-3 text-emerald-500 dark:text-emerald-400" />
                             ) : (
                               <Copy className="w-3 h-3" />
                             )}
@@ -732,7 +730,7 @@ export function LeadsTable({
                         {/* 1. Audit Report Button */}
                         <button
                           onClick={() => onOpenAudit(lead)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 transition-all shadow-sm"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 border border-blue-200 dark:border-blue-500/20 transition-all shadow-sm"
                         >
                           <Sparkles className="w-3.5 h-3.5" />
                           <span>Audit Report</span>
@@ -752,7 +750,7 @@ export function LeadsTable({
                           <button
                             onClick={() => onDeleteLead(lead.id)}
                             title="Delete Lead"
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -765,7 +763,7 @@ export function LeadsTable({
                           <button
                             onClick={() => onRunAudit(lead.id)}
                             disabled={isAuditing}
-                            className="text-[11px] text-slate-400 hover:text-slate-200 underline decoration-slate-600 disabled:opacity-50"
+                            className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 underline decoration-slate-300 dark:decoration-slate-600 disabled:opacity-50"
                           >
                             {isAuditing ? 'Auditing...' : 'Re-run full audit'}
                           </button>
@@ -781,10 +779,10 @@ export function LeadsTable({
       </div>
 
       {/* 3. Footer Stats Bar */}
-      <div className="p-3 sm:p-4 bg-slate-950/90 border-t border-slate-800 text-xs text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-950/90 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-2">
         <span>
-          Showing <strong className="text-white">{filteredLeads.length}</strong> of{' '}
-          <strong className="text-white">{leads.length}</strong> total pipeline prospects
+          Showing <strong className="text-slate-900 dark:text-white">{filteredLeads.length}</strong> of{' '}
+          <strong className="text-slate-900 dark:text-white">{leads.length}</strong> total pipeline prospects
         </span>
         <div className="flex items-center gap-3">
           <span>Dual-Engine: Chrome Harvester + Server Audit Engine</span>
