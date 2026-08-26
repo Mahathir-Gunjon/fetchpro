@@ -56,6 +56,33 @@ function extractEmailsFromHtml(html: string): string[] {
 }
 
 /**
+ * Quick subpage email crawler for /contact and /about
+ */
+async function crawlSubpageEmails(baseUrl: string): Promise<string[]> {
+  const subpaths = ['/contact', '/contact-us', '/about', '/about-us'];
+  const discovered = new Set<string>();
+  const cleanBase = baseUrl.replace(/\/$/, '');
+
+  for (const path of subpaths) {
+    try {
+      const subUrl = `${cleanBase}${path}`;
+      const res = await fetch(subUrl, {
+        signal: AbortSignal.timeout(2200),
+        headers: { 'User-Agent': 'Mozilla/5.0 FetchProAuditor/2.0' },
+      });
+      if (res.ok) {
+        const subHtml = await res.text();
+        const emails = extractEmailsFromHtml(subHtml);
+        emails.forEach((e) => discovered.add(e));
+        if (discovered.size >= 2) break;
+      }
+    } catch (e) {}
+  }
+
+  return Array.from(discovered);
+}
+
+/**
  * Extract social media profile links (Facebook, Instagram, TikTok, LinkedIn, Twitter/X, YouTube)
  */
 export function extractSocialProfiles(html: string): SocialLinks {
@@ -130,9 +157,7 @@ async function fetchGooglePageSpeed(url: string, responseTimeMs: number): Promis
         };
       }
     }
-  } catch (err) {
-    // Graceful fallback to heuristic latency simulation if PageSpeed times out or rate limits
-  }
+  } catch (err) {}
 
   // Fast deterministic fallback based on server response latency
   let estimatedScore = 80;
@@ -551,8 +576,13 @@ export async function auditWebsite(
     techStack.analytics.push('Google Analytics');
   if (lowerHtml.includes('facebook.com/tr') || lowerHtml.includes('fbq(')) techStack.analytics.push('Meta Pixel');
 
-  // 10. Emails & Social Profiles Extraction
-  const extractedEmails = extractEmailsFromHtml(html);
+  // 10. Emails & Social Profiles Extraction (with deep /contact subpage crawler fallback)
+  let extractedEmails = extractEmailsFromHtml(html);
+  if (extractedEmails.length === 0 && finalUrl.startsWith('http')) {
+    const subEmails = await crawlSubpageEmails(finalUrl);
+    extractedEmails = subEmails;
+  }
+
   const socials = extractSocialProfiles(html);
 
   const finalScore = Math.max(15, Math.min(100, Math.round(score)));

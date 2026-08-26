@@ -24,7 +24,7 @@ export async function OPTIONS() {
   return corsResponse({ ok: true });
 }
 
-// POST /api/leads/batch-audit - Batch audit with opportunity scoring and top 20-30% funnel tagging
+// POST /api/leads/batch-audit - Batch audit with opportunity scoring and AI qualification reasoning
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
             const opp = calculateOpportunityScore(lead, auditResult);
             auditResult.opportunityScore = opp.score;
             auditResult.opportunityReasons = opp.reasons;
+            auditResult.qualification_log = opp.qualification_log;
 
             // Generate pitch for hot leads (zero-waste execution)
             const pitchResult = await generateColdPitch(
@@ -84,6 +85,7 @@ export async function POST(req: NextRequest) {
               audit_data: auditResult,
               opportunity_score: opp.score,
               opportunity_reasons: opp.reasons,
+              qualification_log: opp.qualification_log,
               email: newEmail,
               socials: Object.keys(combinedSocials).length > 0 ? combinedSocials : null,
               ai_subject: pitchResult.subject,
@@ -106,7 +108,7 @@ export async function POST(req: NextRequest) {
     return corsResponse({
       success: true,
       auditedCount: updatedLeads.length,
-      message: `Audited ${updatedLeads.length} website(s) with PageSpeed & Opportunity Funnel filter.`,
+      message: `Audited ${updatedLeads.length} website(s) with PageSpeed & Qualification Reasoning.`,
       leads: updatedLeads,
     });
   } catch (error: any) {

@@ -22,7 +22,7 @@ export async function OPTIONS() {
   return corsResponse({ ok: true });
 }
 
-// POST /api/leads/sync - Batch sync from Chrome Extension with initial Opportunity Scoring
+// POST /api/leads/sync - Batch sync from Chrome Extension with initial Opportunity & Qualification Scoring
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get('Authorization');
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       return corsResponse({ success: false, error: 'No leads provided in payload' }, 400);
     }
 
-    // Insert batch of leads with initial opportunity score & funnel classification
+    // Insert batch of leads with initial opportunity score & qualification log
     const insertedLeads = await dbBatchInsertLeads(
       rawLeads.map((l) => {
         const initialOpp = calculateOpportunityScore(
@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
           email: l.email || null,
           opportunity_score: initialOpp.score,
           opportunity_reasons: initialOpp.reasons,
+          qualification_log: initialOpp.qualification_log,
           status: !l.website_url ? 'hot_lead' : 'pending',
         };
       })
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
     return corsResponse({
       success: true,
       syncedCount: insertedLeads.length,
-      message: `Successfully synced ${insertedLeads.length} leads to FetchPro! Ready for audit.`,
+      message: `Successfully synced ${insertedLeads.length} leads to FetchPro with Deep Qualification Reasoning.`,
       leads: insertedLeads,
     });
   } catch (error: any) {

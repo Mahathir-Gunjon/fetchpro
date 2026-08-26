@@ -16,16 +16,17 @@ import {
   Flame,
   CheckSquare,
   Square,
-  Globe,
+  HelpCircle,
   Zap,
-  Trash,
-  AlertTriangle,
+  Tag,
+  Target,
 } from 'lucide-react';
 
 interface LeadsTableProps {
   leads: Lead[];
   onOpenAudit: (lead: Lead) => void;
   onOpenPitchEditor: (lead: Lead) => void;
+  onOpenWhyPicked?: (lead: Lead) => void;
   onRunAudit: (leadId: string) => void;
   onRunBatchAudit?: (leadIds: string[]) => void;
   onDeleteLead: (leadId: string) => void;
@@ -43,6 +44,7 @@ export function LeadsTable({
   leads,
   onOpenAudit,
   onOpenPitchEditor,
+  onOpenWhyPicked,
   onRunAudit,
   onRunBatchAudit,
   onDeleteLead,
@@ -69,7 +71,13 @@ export function LeadsTable({
           !lead.website_url;
         if (!isHot) return false;
       } else if (activeTab === 'audited') {
-        if (lead.status !== 'audited' && lead.status !== 'emailed' && lead.status !== 'hot_lead' && lead.status !== 'trash') return false;
+        if (
+          lead.status !== 'audited' &&
+          lead.status !== 'emailed' &&
+          lead.status !== 'hot_lead' &&
+          lead.status !== 'trash'
+        )
+          return false;
         if (!lead.audit_data) return false;
       } else if (activeTab === 'nowebsite') {
         if (!!lead.website_url) return false;
@@ -78,7 +86,10 @@ export function LeadsTable({
       } else if (activeTab === 'trash') {
         const isTrash =
           lead.status === 'trash' ||
-          (typeof lead.opportunity_score === 'number' && lead.opportunity_score <= 15 && lead.audit_data?.healthScore && lead.audit_data.healthScore >= 85);
+          (typeof lead.opportunity_score === 'number' &&
+            lead.opportunity_score <= 15 &&
+            lead.audit_data?.healthScore &&
+            lead.audit_data.healthScore >= 85);
         if (!isTrash) return false;
       }
 
@@ -147,16 +158,24 @@ export function LeadsTable({
   };
 
   const hotCount = leads.filter(
-    (l) => l.status === 'hot_lead' || (l.opportunity_score && l.opportunity_score >= 45) || !l.website_url
+    (l) =>
+      l.status === 'hot_lead' ||
+      (l.opportunity_score && l.opportunity_score >= 45) ||
+      !l.website_url
   ).length;
 
   const trashCount = leads.filter(
-    (l) => l.status === 'trash' || (l.opportunity_score && l.opportunity_score <= 15 && l.audit_data?.healthScore && l.audit_data.healthScore >= 85)
+    (l) =>
+      l.status === 'trash' ||
+      (l.opportunity_score &&
+        l.opportunity_score <= 15 &&
+        l.audit_data?.healthScore &&
+        l.audit_data.healthScore >= 85)
   ).length;
 
   const tabLabels: { id: DashboardViewTab; label: string; count: number; hot?: boolean }[] = [
-    { id: 'hot', label: '🔥 Hot Leads (Top 30%)', count: hotCount, hot: true },
-    { id: 'all', label: 'All Raw Leads', count: leads.length },
+    { id: 'hot', label: '🔥 Qualified / Hot Leads (Top 30%)', count: hotCount, hot: true },
+    { id: 'all', label: 'All Scraped Leads', count: leads.length },
     { id: 'audited', label: 'Audited Sites', count: leads.filter((l) => !!l.audit_data).length },
     { id: 'nowebsite', label: 'No Website', count: leads.filter((l) => !l.website_url).length },
     { id: 'emailed', label: 'Outreach Sent', count: leads.filter((l) => l.status === 'emailed').length },
@@ -184,9 +203,7 @@ export function LeadsTable({
               <span>{tab.label}</span>
               <span
                 className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                  activeTab === tab.id
-                    ? 'bg-white/20 text-white'
-                    : 'bg-slate-800 text-slate-400'
+                  activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'
                 }`}
               >
                 {tab.count}
@@ -227,7 +244,7 @@ export function LeadsTable({
             <button
               onClick={handleBulkDelete}
               disabled={isBatchAuditing}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-lg transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>Delete Selected</span>
@@ -255,11 +272,11 @@ export function LeadsTable({
                     )}
                   </button>
                 </th>
-                <th className="py-3.5 px-4">Opportunity & Business</th>
+                <th className="py-3.5 px-4">Business & Reason</th>
                 <th className="py-3.5 px-4">Contact Info</th>
                 <th className="py-3.5 px-4">Social Profiles</th>
                 <th className="py-3.5 px-4">Website & PageSpeed</th>
-                <th className="py-3.5 px-4">Status & Outreach</th>
+                <th className="py-3.5 px-4">Qualification / Why Picked?</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -275,7 +292,7 @@ export function LeadsTable({
                       <p className="text-xs text-slate-400">
                         {searchQuery
                           ? `No leads matched "${searchQuery}". Try another search.`
-                          : 'Run an audit to filter high-opportunity hot leads or scrape from Google Maps.'}
+                          : 'Deep Profile Scraper is ready. Extract leads from Google Maps or audit on demand.'}
                       </p>
                       <button
                         onClick={onAddLead}
@@ -292,10 +309,24 @@ export function LeadsTable({
                   const isAuditing = auditingId === lead.id || auditingIds.has(lead.id);
                   const hasNoWebsite = !lead.website_url;
                   const socials = lead.socials || lead.audit_data?.socials;
-                  const oppScore = typeof lead.opportunity_score === 'number' ? lead.opportunity_score : (hasNoWebsite ? 95 : 0);
+                  const oppScore =
+                    typeof lead.opportunity_score === 'number'
+                      ? lead.opportunity_score
+                      : hasNoWebsite
+                      ? 95
+                      : 0;
                   const isHot = lead.status === 'hot_lead' || oppScore >= 45;
-                  const isTrash = lead.status === 'trash' || (oppScore <= 15 && lead.audit_data && lead.audit_data.healthScore >= 85);
+                  const isTrash =
+                    lead.status === 'trash' ||
+                    (oppScore <= 15 &&
+                      lead.audit_data &&
+                      lead.audit_data.healthScore >= 85);
                   const pageSpeedScore = lead.audit_data?.pageSpeed?.score;
+                  const primaryReason =
+                    lead.qualification_log?.primary_reason ||
+                    (hasNoWebsite
+                      ? 'No Website Found on Profile or Web Results'
+                      : lead.opportunity_reasons?.[0] || 'High Opportunity Lead');
 
                   return (
                     <tr
@@ -322,7 +353,7 @@ export function LeadsTable({
                         </button>
                       </td>
 
-                      {/* Business & Opportunity Score */}
+                      {/* Business & Reason */}
                       <td className="py-3.5 px-4">
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-2">
@@ -483,7 +514,9 @@ export function LeadsTable({
                                 rel="noreferrer"
                                 className="text-slate-300 hover:text-blue-400 underline decoration-slate-700 truncate font-mono text-[11px]"
                               >
-                                {lead.website_url!.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
+                                {lead
+                                  .website_url!.replace(/^https?:\/\/(www\.)?/, '')
+                                  .replace(/\/$/, '')}
                               </a>
                               <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
                                 {typeof pageSpeedScore === 'number' ? (
@@ -517,38 +550,25 @@ export function LeadsTable({
                         )}
                       </td>
 
-                      {/* Status & Outreach */}
+                      {/* Qualification / Why Picked Modal Trigger */}
                       <td className="py-3.5 px-4">
-                        {lead.status === 'emailed' ? (
-                          <div className="flex flex-col gap-0.5">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
-                              <CheckCircle2 className="w-3 h-3" />
-                              <span>Outreach Sent</span>
+                        <button
+                          onClick={() => onOpenWhyPicked && onOpenWhyPicked(lead)}
+                          className="text-left group/btn p-2 rounded-xl bg-slate-950/60 hover:bg-slate-900 border border-slate-800/80 hover:border-blue-500/40 transition-all flex flex-col gap-1 max-w-[210px]"
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
+                              <Target className="w-3 h-3 text-amber-400" />
+                              <span>Why Picked?</span>
                             </span>
-                            {lead.emailed_at && (
-                              <span className="text-[10px] text-slate-400">
-                                {new Date(lead.emailed_at).toLocaleDateString()}
-                              </span>
-                            )}
+                            <span className="text-[10px] text-blue-400 group-hover/btn:translate-x-0.5 transition-transform">
+                              Inspect →
+                            </span>
                           </div>
-                        ) : isHot ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30">
-                            <Sparkles className="w-3 h-3 text-amber-400" />
-                            <span>Hot Opportunity</span>
+                          <span className="text-[11px] text-slate-300 truncate w-full font-medium" title={primaryReason}>
+                            {primaryReason}
                           </span>
-                        ) : isTrash ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold text-slate-400 bg-slate-800 border border-slate-700">
-                            <span>100% Perfect</span>
-                          </span>
-                        ) : lead.status === 'audited' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20">
-                            <span>Audited</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold text-slate-400 bg-slate-800/60 border border-slate-700/60">
-                            <span>Pending</span>
-                          </span>
-                        )}
+                        </button>
                       </td>
 
                       {/* Action Buttons */}
@@ -577,7 +597,7 @@ export function LeadsTable({
                             title="Review or Send AI Cold Pitch"
                           >
                             <Sparkles className="w-3 h-3" />
-                            <span>{lead.status === 'emailed' ? 'Review Pitch' : 'Pitch'}</span>
+                            <span>{lead.status === 'emailed' ? 'Review' : 'Pitch'}</span>
                           </button>
 
                           {/* Delete Lead Button */}

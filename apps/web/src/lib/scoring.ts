@@ -1,14 +1,15 @@
-import { Lead, AuditData, LeadStatus } from './types';
+import { Lead, AuditData, LeadStatus, QualificationLog } from './types';
 
 export interface OpportunityScoreResult {
   score: number; // 0 - 100
   reasons: string[];
   recommendedStatus: LeadStatus;
+  qualification_log: QualificationLog;
 }
 
 /**
- * Deterministic Opportunity Scoring Engine
- * Evaluates how valuable and high-converting this lead is for web agency outreach.
+ * Deterministic Opportunity & Qualification Reasoning Engine
+ * Evaluates leads with transparent checklist breakdown for the "Why Picked?" modal.
  */
 export function calculateOpportunityScore(
   lead: Partial<Lead>,
@@ -19,18 +20,44 @@ export function calculateOpportunityScore(
 
   const websiteUrl = lead.website_url || audit?.url;
   const reviewsCount = typeof lead.reviews_count === 'number' ? lead.reviews_count : 0;
+  const socials = lead.socials || audit?.socials;
 
-  // 1. No Website Found -> Instant Top Opportunity
+  const hasFacebook = Boolean(socials?.facebook);
+  const hasInstagram = Boolean(socials?.instagram);
+  const hasTiktok = Boolean(socials?.tiktok);
+
+  // 1. No Website Found -> Instant Qualified Hot Lead
   if (!websiteUrl) {
+    const qualLog: QualificationLog = {
+      is_qualified: true,
+      primary_reason: 'No Website Found on Profile or Web Results (Immediate Need for Full Site Build)',
+      qualification_tag: 'NO_WEBSITE',
+      checks: {
+        google_maps_website_button: false,
+        web_results_matched: false,
+        facebook_page_found: hasFacebook,
+        instagram_page_found: hasInstagram,
+        tiktok_page_found: hasTiktok,
+        ssl_valid: null,
+        copyright_year: null,
+        mobile_speed_score: null,
+        missing_local_schema: null,
+      },
+      score: 95,
+    };
+
     return {
       score: 95,
-      reasons: ['No Website Found (Immediate Need for Full Site Build)'],
+      reasons: ['No Website Found on Google Maps (Prime Prospect for Complete Website Build)'],
       recommendedStatus: 'hot_lead',
+      qualification_log: qualLog,
     };
   }
 
   // 2. Mobile PageSpeed Insights (< 50 -> +30, 50-70 -> +15)
+  let mobileSpeedScore: number | null = null;
   if (audit?.pageSpeed) {
+    mobileSpeedScore = audit.pageSpeed.score;
     if (audit.pageSpeed.score < 50) {
       score += 30;
       reasons.push(`Critical Mobile Speed (${audit.pageSpeed.score}/100)`);
@@ -44,45 +71,44 @@ export function calculateOpportunityScore(
   }
 
   // 3. Backdated Copyright (<= 2023) or UI / Viewport Flaws (+25)
-  let hasUiOrCopyrightFlaw = false;
-  if (audit?.copyright?.detectedYear && audit.copyright.detectedYear <= 2023) {
-    score += 25;
-    hasUiOrCopyrightFlaw = true;
-    reasons.push(`Backdated Copyright (${audit.copyright.detectedYear})`);
+  let copyrightYear: number | null = null;
+  let isBackdated = false;
+  if (audit?.copyright?.detectedYear) {
+    copyrightYear = audit.copyright.detectedYear;
+    if (copyrightYear <= 2023) {
+      isBackdated = true;
+      score += 25;
+      reasons.push(`Backdated Copyright (${copyrightYear})`);
+    }
   }
 
   if (audit?.mobileResponsive && !audit.mobileResponsive.isMobileFriendly) {
-    if (!hasUiOrCopyrightFlaw) {
-      score += 25;
-      hasUiOrCopyrightFlaw = true;
-    }
+    if (!isBackdated) score += 25;
     reasons.push('Missing Responsive Mobile Viewport');
   }
 
   if (audit?.ctaCheck && !audit.ctaCheck.hasClearCta) {
-    if (!hasUiOrCopyrightFlaw) {
-      score += 15;
-    }
-    reasons.push('Missing Direct Booking / Quote Call-To-Action');
+    score += 15;
+    reasons.push('Missing Direct Call-To-Action (Call/Quote Button)');
   }
 
   // 4. Missing Local Schema or Meta Tags (+20)
-  let hasSeoFlaw = false;
-  if (audit?.localSeo && !audit.localSeo.hasLocalSchema) {
-    score += 20;
-    hasSeoFlaw = true;
-    reasons.push('Missing LocalBusiness JSON-LD Schema');
+  let missingSchema = false;
+  if (audit?.localSeo) {
+    missingSchema = !audit.localSeo.hasLocalSchema;
+    if (missingSchema) {
+      score += 20;
+      reasons.push('Missing LocalBusiness JSON-LD Schema');
+    }
   }
 
   if (audit?.meta && (!audit.meta.description || !audit.meta.title)) {
-    if (!hasSeoFlaw) {
-      score += 15;
-      hasSeoFlaw = true;
-    }
-    reasons.push('Missing SEO Title or Description');
+    score += 15;
+    reasons.push('Missing SEO Meta Title or Description');
   }
 
   // 5. SSL Security Check
+  const sslValid = audit?.ssl ? audit.ssl.hasSsl && audit.ssl.valid : null;
   if (audit?.ssl && (!audit.ssl.hasSsl || !audit.ssl.valid)) {
     score += 25;
     reasons.push('Insecure / Missing SSL Certificate (Not Secure)');
@@ -94,23 +120,57 @@ export function calculateOpportunityScore(
     reasons.push(`Low GMB Review Count (${reviewsCount} reviews)`);
   }
 
-  // Cap at 100
+  // Cap score at 100
   const finalScore = Math.min(100, Math.max(0, score));
 
-  // Determine Classification Status:
-  // - Score >= 45: hot_lead (Top opportunity for immediate outreach)
-  // - Flawless site (score < 15, valid SSL, speed >= 85, valid schema): trash (Auto-Archive)
+  // Determine Tag & Primary Reason
+  let primaryReason = 'Active Website with High Digital Conversion Opportunity';
+  let tag: QualificationLog['qualification_tag'] = 'QUALIFIED_HOT';
+
+  if (isBackdated && mobileSpeedScore && mobileSpeedScore < 60) {
+    primaryReason = `Outdated & Slow Website (Speed: ${mobileSpeedScore}/100, Copyright ${copyrightYear})`;
+    tag = 'OUTDATED_WEBSITE';
+  } else if (mobileSpeedScore && mobileSpeedScore < 50) {
+    primaryReason = `Severe Mobile Speed Latency (${mobileSpeedScore}/100 PageSpeed)`;
+    tag = 'SLOW_PAGESPEED';
+  } else if (sslValid === false) {
+    primaryReason = 'Insecure Website Warning (Missing SSL/HTTPS Certificate)';
+    tag = 'INSECURE_SSL';
+  } else if (missingSchema) {
+    primaryReason = 'Missing LocalBusiness Schema & Google Maps SEO Signals';
+    tag = 'MISSING_SCHEMA';
+  } else if (isBackdated) {
+    primaryReason = `Neglected / Backdated Website (Copyright ${copyrightYear})`;
+    tag = 'OUTDATED_WEBSITE';
+  } else if (finalScore <= 15 && (audit?.healthScore || 85) >= 80) {
+    primaryReason = 'Website is fully modern, fast, and optimized (100% OK)';
+    tag = 'PERFECT_SITE';
+  }
+
+  const isQualified = finalScore >= 40 || tag !== 'PERFECT_SITE';
+
+  const qualLog: QualificationLog = {
+    is_qualified: isQualified,
+    primary_reason: primaryReason,
+    qualification_tag: tag,
+    checks: {
+      google_maps_website_button: Boolean(lead.website_url),
+      web_results_matched: true,
+      facebook_page_found: hasFacebook,
+      instagram_page_found: hasInstagram,
+      tiktok_page_found: hasTiktok,
+      ssl_valid: sslValid,
+      copyright_year: copyrightYear,
+      mobile_speed_score: mobileSpeedScore,
+      missing_local_schema: missingSchema,
+    },
+    score: finalScore,
+  };
+
   let recommendedStatus: LeadStatus = 'audited';
-
-  const isFlawless =
-    finalScore < 15 &&
-    audit?.ssl?.valid &&
-    (audit?.pageSpeed?.score || 85) >= 80 &&
-    (audit?.localSeo?.hasLocalSchema || true);
-
   if (finalScore >= 45) {
     recommendedStatus = 'hot_lead';
-  } else if (isFlawless && lead.status !== 'emailed') {
+  } else if (tag === 'PERFECT_SITE' && lead.status !== 'emailed') {
     recommendedStatus = 'trash';
   } else if (lead.status === 'emailed') {
     recommendedStatus = 'emailed';
@@ -120,36 +180,34 @@ export function calculateOpportunityScore(
     score: finalScore,
     reasons,
     recommendedStatus,
+    qualification_log: qualLog,
   };
 }
 
 /**
  * Intelligent Funnel Filter:
- * Takes a list of leads, sorts them by Opportunity Score,
- * flags the Top 20-30% with score >= 40 as 'hot_lead',
- * and flags flawless / zero-opportunity sites as 'trash'.
+ * Ranks leads, attaches structured qualification reasoning,
+ * and classifies the Top 20-30% into hot_lead.
  */
 export function classifyBatchFunnel(leads: Lead[]): Lead[] {
   if (!leads || leads.length === 0) return [];
 
-  // Calculate scores for all leads
   const scoredList = leads.map((lead) => {
     const opp = calculateOpportunityScore(lead, lead.audit_data);
     return {
       ...lead,
       opportunity_score: opp.score,
       opportunity_reasons: opp.reasons,
+      qualification_log: opp.qualification_log,
       _calculatedStatus: opp.recommendedStatus,
     };
   });
 
-  // Calculate 70th percentile threshold (top 30%)
   const scores = scoredList.map((l) => l.opportunity_score || 0).sort((a, b) => b - a);
   const top30Index = Math.max(0, Math.floor(scores.length * 0.3) - 1);
   const top30Threshold = scores[top30Index] || 45;
 
   return scoredList.map((lead) => {
-    // Preserve emailed status
     if (lead.status === 'emailed') {
       const { _calculatedStatus, ...clean } = lead;
       return clean;

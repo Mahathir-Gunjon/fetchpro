@@ -36,6 +36,33 @@ export interface CtaCheckData {
   ctaLabels: string[];
 }
 
+export interface QualificationChecks {
+  google_maps_website_button: boolean;
+  web_results_matched: boolean;
+  facebook_page_found: boolean;
+  instagram_page_found: boolean;
+  tiktok_page_found: boolean;
+  ssl_valid: boolean | null;
+  copyright_year: number | null;
+  mobile_speed_score: number | null;
+  missing_local_schema: boolean | null;
+}
+
+export interface QualificationLog {
+  is_qualified: boolean;
+  primary_reason: string;
+  qualification_tag:
+    | 'NO_WEBSITE'
+    | 'OUTDATED_WEBSITE'
+    | 'SLOW_PAGESPEED'
+    | 'MISSING_SCHEMA'
+    | 'INSECURE_SSL'
+    | 'QUALIFIED_HOT'
+    | 'PERFECT_SITE';
+  checks: QualificationChecks;
+  score: number;
+}
+
 export interface AuditData {
   url: string;
   healthScore: number; // 0 - 100
@@ -43,6 +70,7 @@ export interface AuditData {
   responseTimeMs: number;
   opportunityScore?: number;
   opportunityReasons?: string[];
+  qualification_log?: QualificationLog;
   pageSpeed?: PageSpeedData;
   localSeo?: LocalSeoData;
   ctaCheck?: CtaCheckData;
@@ -95,6 +123,7 @@ export interface Lead {
   status: LeadStatus;
   opportunity_score?: number | null;
   opportunity_reasons?: string[] | null;
+  qualification_log?: QualificationLog | null;
   audit_data?: AuditData | null;
   socials?: SocialLinks | null;
   ai_pitch?: string | null;
@@ -115,6 +144,7 @@ export interface ExtractedLeadInput {
   email?: string | null;
   socials?: SocialLinks | null;
   status?: string;
+  qualification_log?: QualificationLog | null;
 }
 
 export interface PitchGenerationResult {

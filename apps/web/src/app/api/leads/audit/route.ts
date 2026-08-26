@@ -23,7 +23,7 @@ export async function OPTIONS() {
   return corsResponse({ ok: true });
 }
 
-// POST /api/leads/audit - Trigger website & SEO audit + opportunity scoring
+// POST /api/leads/audit - Trigger website & SEO audit + qualification reasoning
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -52,10 +52,11 @@ export async function POST(req: NextRequest) {
       reviewsCount: lead?.reviews_count,
     });
 
-    // Calculate Opportunity Score & Funnel Status
+    // Calculate Opportunity Score, Funnel Status & Qualification Reasoning
     const opp = calculateOpportunityScore(lead || { website_url: targetUrl }, auditData);
     auditData.opportunityScore = opp.score;
     auditData.opportunityReasons = opp.reasons;
+    auditData.qualification_log = opp.qualification_log;
 
     // If linked to a lead, generate pitch and update DB
     let updatedLead = lead;
@@ -74,6 +75,7 @@ export async function POST(req: NextRequest) {
         email: newEmail,
         opportunity_score: opp.score,
         opportunity_reasons: opp.reasons,
+        qualification_log: opp.qualification_log,
         status: lead.status === 'emailed' ? 'emailed' : opp.recommendedStatus,
         ai_subject: pitchResult.subject,
         ai_pitch: pitchResult.pitch,
@@ -84,6 +86,7 @@ export async function POST(req: NextRequest) {
       success: true,
       auditData,
       opportunityScore: opp.score,
+      qualification_log: opp.qualification_log,
       lead: updatedLead,
     });
   } catch (error: any) {

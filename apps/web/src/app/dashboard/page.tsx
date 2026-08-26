@@ -9,6 +9,7 @@ import { StatsOverview } from '@/components/StatsOverview';
 import { LeadsTable } from '@/components/LeadsTable';
 import { AuditDetailsModal } from '@/components/AuditDetailsModal';
 import { PitchEditorModal } from '@/components/PitchEditorModal';
+import { WhyPickedModal } from '@/components/WhyPickedModal';
 import { AddLeadModal } from '@/components/AddLeadModal';
 import { ExtensionConfigModal } from '@/components/ExtensionConfigModal';
 import { ToastContainer, ToastMessage } from '@/components/Toast';
@@ -41,6 +42,7 @@ export default function DashboardPage() {
   // Modals state
   const [selectedAuditLead, setSelectedAuditLead] = useState<Lead | null>(null);
   const [selectedPitchLead, setSelectedPitchLead] = useState<Lead | null>(null);
+  const [selectedWhyPickedLead, setSelectedWhyPickedLead] = useState<Lead | null>(null);
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
   const [isExtensionConfigOpen, setIsExtensionConfigOpen] = useState(false);
 
@@ -82,13 +84,25 @@ export default function DashboardPage() {
   const calculateStats = (leadList: Lead[]): DashboardStats => {
     const totalLeads = leadList.length;
     const auditedLeads = leadList.filter(
-      (l) => l.status === 'audited' || l.status === 'emailed' || l.status === 'hot_lead' || l.status === 'trash'
+      (l) =>
+        l.status === 'audited' ||
+        l.status === 'emailed' ||
+        l.status === 'hot_lead' ||
+        l.status === 'trash'
     ).length;
     const hotLeadsCount = leadList.filter(
-      (l) => l.status === 'hot_lead' || (l.opportunity_score && l.opportunity_score >= 45) || !l.website_url
+      (l) =>
+        l.status === 'hot_lead' ||
+        (l.opportunity_score && l.opportunity_score >= 45) ||
+        !l.website_url
     ).length;
     const trashLeadsCount = leadList.filter(
-      (l) => l.status === 'trash' || (l.opportunity_score && l.opportunity_score <= 15 && l.audit_data?.healthScore && l.audit_data.healthScore >= 85)
+      (l) =>
+        l.status === 'trash' ||
+        (l.opportunity_score &&
+          l.opportunity_score <= 15 &&
+          l.audit_data?.healthScore &&
+          l.audit_data.healthScore >= 85)
     ).length;
     const emailsSent = leadList.filter((l) => l.status === 'emailed').length;
     const leadsWithWebsites = leadList.filter((l) => !!l.website_url).length;
@@ -98,7 +112,9 @@ export default function DashboardPage() {
     const scored = leadList.filter((l) => l.audit_data?.healthScore !== undefined);
     const averageHealthScore =
       scored.length > 0
-        ? Math.round(scored.reduce((acc, l) => acc + (l.audit_data?.healthScore || 0), 0) / scored.length)
+        ? Math.round(
+            scored.reduce((acc, l) => acc + (l.audit_data?.healthScore || 0), 0) / scored.length
+          )
         : 0;
 
     return {
@@ -223,6 +239,9 @@ export default function DashboardPage() {
 
         if (selectedAuditLead?.id === leadId) {
           setSelectedAuditLead(data.lead);
+        }
+        if (selectedWhyPickedLead?.id === leadId) {
+          setSelectedWhyPickedLead(data.lead);
         }
         addToast(
           'success',
@@ -522,6 +541,7 @@ export default function DashboardPage() {
             leads={leads}
             onOpenAudit={(lead) => setSelectedAuditLead(lead)}
             onOpenPitchEditor={(lead) => setSelectedPitchLead(lead)}
+            onOpenWhyPicked={(lead) => setSelectedWhyPickedLead(lead)}
             onRunAudit={handleRunAudit}
             onRunBatchAudit={handleRunBatchAudit}
             onDeleteLead={handleDeleteLead}
@@ -545,6 +565,15 @@ export default function DashboardPage() {
         onAuditAgain={handleRunAudit}
         onOpenPitchEditor={(lead) => setSelectedPitchLead(lead)}
         isAuditing={auditingId === selectedAuditLead?.id}
+      />
+
+      <WhyPickedModal
+        lead={selectedWhyPickedLead}
+        isOpen={!!selectedWhyPickedLead}
+        onClose={() => setSelectedWhyPickedLead(null)}
+        onOpenPitchEditor={(lead) => setSelectedPitchLead(lead)}
+        onRunAudit={handleRunAudit}
+        isAuditing={auditingId === selectedWhyPickedLead?.id}
       />
 
       <PitchEditorModal
