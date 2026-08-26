@@ -228,6 +228,7 @@ function checkLocalSeoAndSchema(html: string): LocalSeoData {
   }
 
   const hasH1 = /<h1[^>]*>[\s\S]*?<\/h1>/i.test(html);
+  const hasH2 = /<h2[^>]*>[\s\S]*?<\/h2>/i.test(html);
   const hasTitle = /<title[^>]*>[\s\S]*?<\/title>/i.test(html);
   const hasDescription = /<meta\s+[^>]*(name=["']description["']|property=["']og:description["'])[^>]*>/i.test(html);
 
@@ -235,6 +236,7 @@ function checkLocalSeoAndSchema(html: string): LocalSeoData {
     hasLocalSchema,
     schemaTypes: Array.from(new Set(schemaTypes)),
     hasH1,
+    hasH2,
     hasTitle,
     hasDescription,
   };
@@ -350,7 +352,7 @@ export async function auditWebsite(
       auditedAt: new Date().toISOString(),
       responseTimeMs: responseTimeMs || 4000,
       pageSpeed: { score: 15, isSlow: true },
-      localSeo: { hasLocalSchema: false, schemaTypes: [], hasH1: false, hasTitle: false, hasDescription: false },
+      localSeo: { hasLocalSchema: false, schemaTypes: [], hasH1: false, hasH2: false, hasTitle: false, hasDescription: false },
       ctaCheck: { hasClearCta: false, ctaLabels: [] },
       ssl: { hasSsl: false, valid: false },
       mobileResponsive: { hasViewport: false, isMobileFriendly: false },

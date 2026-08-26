@@ -1,18 +1,21 @@
 /**
- * FetchPro - Google Maps Deep Profile Inspection Engine
- * Features:
- * 1. Click & Deep Scroll on Place Detail Panels (forces lazy-loaded Web results and bottom sections to render)
- * 2. Deep URL & Social Extraction (Facebook, Instagram, TikTok, LinkedIn, Twitter/X, YouTube)
- * 3. High-Accuracy DOM parsing and Background Sync
+ * FetchPro - High-Fidelity Google Maps Profile & Web Results Scraper
+ *
+ * Strictly separates the Scraping Layer from the Backend Audit & Qualification Engine.
+ *
+ * Extracts:
+ * 1. Overview Section: Name, Rating, Reviews Count, Category, Phone, Address, Official GMB Website button
+ * 2. About & Details metadata: Opening hours, verified badges, business description
+ * 3. Web Results Link Harvester: Discovered candidate websites, Facebook, Instagram, Yelp, LinkedIn, Twitter/X, TikTok, YouTube
  */
 
 (function () {
-  console.log('[FetchPro] Deep Profile Inspection Engine loaded on:', window.location.href);
+  console.log('[FetchPro] High-Fidelity GMB Scraper active on:', window.location.href);
 
   let isScraping = false;
   let scrapedLeads = [];
   let seenIdentifiers = new Set();
-  let maxLeadsTarget = 30;
+  let maxLeadsTarget = 100;
   let floatingBanner = null;
 
   function cleanText(text) {
@@ -21,7 +24,7 @@
   }
 
   /**
-   * Find main results feed container
+   * Find main search results feed container
    */
   function getSearchFeedContainer() {
     const feed = document.querySelector('div[role="feed"]');
@@ -43,7 +46,7 @@
   }
 
   /**
-   * Find opened Place Details pane container
+   * Find open Place Details pane container
    */
   function getPlaceDetailsPane() {
     const detailPane = document.querySelector(
@@ -87,7 +90,7 @@
         <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${
           isRunning ? '#10b981' : '#3b82f6'
         }; box-shadow:${isRunning ? '0 0 10px #10b981' : '0 0 6px #3b82f6'};"></span>
-        <strong style="font-weight:700; color:#60a5fa;">FetchPro Deep Scraper</strong>
+        <strong style="font-weight:700; color:#60a5fa;">FetchPro Harvester</strong>
       </div>
       <div style="height:14px; width:1px; background:rgba(255,255,255,0.2);"></div>
       <div>${statusText}: <span style="font-weight:700; color:#38bdf8;">${count}</span> leads</div>
@@ -95,12 +98,22 @@
   }
 
   /**
-   * Deep link parser: resolves Web results, social links, and unlinked websites
+   * Harvest "Web results" bottom list & classify links into websites, directories, and social profiles
    */
-  function extractWebResultsAndSocials(rootEl) {
+  function harvestWebResultsAndSocials(rootEl) {
     const root = rootEl || document;
-    const socials = {};
-    let unlinkedSite = '';
+    const web_results_links = [];
+    const social_profiles = {
+      facebook: null,
+      instagram: null,
+      yelp: null,
+      linkedin: null,
+      twitter_x: null,
+      youtube: null,
+      tiktok: null,
+      mapquest: null,
+    };
+    let discovered_website = null;
 
     const allLinks = root.querySelectorAll('a[href^="http"]');
 
@@ -118,8 +131,9 @@
       }
 
       const cleanLower = rawHref.toLowerCase();
+      const linkText = cleanText(a.innerText || a.getAttribute('aria-label') || '');
 
-      // Skip internal google links
+      // Skip internal Google and tracking URLs
       if (
         cleanLower.includes('google.com') ||
         cleanLower.includes('gstatic.com') ||
@@ -129,42 +143,61 @@
         return;
       }
 
-      // Check Social Platforms
-      if (!socials.facebook && cleanLower.includes('facebook.com') && !cleanLower.includes('/sharer')) {
-        socials.facebook = rawHref;
-      } else if (!socials.instagram && cleanLower.includes('instagram.com') && !cleanLower.includes('/p/')) {
-        socials.instagram = rawHref;
-      } else if (!socials.tiktok && cleanLower.includes('tiktok.com/@')) {
-        socials.tiktok = rawHref;
-      } else if (!socials.linkedin && (cleanLower.includes('linkedin.com/company/') || cleanLower.includes('linkedin.com/in/'))) {
-        socials.linkedin = rawHref;
-      } else if (!socials.twitter && (cleanLower.includes('twitter.com/') || cleanLower.includes('x.com/')) && !cleanLower.includes('/intent')) {
-        socials.twitter = rawHref;
-      } else if (!socials.youtube && (cleanLower.includes('youtube.com/c/') || cleanLower.includes('youtube.com/@') || cleanLower.includes('youtube.com/channel/'))) {
-        socials.youtube = rawHref;
+      // Classify links
+      if (cleanLower.includes('facebook.com') && !cleanLower.includes('/sharer')) {
+        if (!social_profiles.facebook) social_profiles.facebook = rawHref;
+        web_results_links.push({ type: 'facebook', url: rawHref, title: linkText });
+      } else if (cleanLower.includes('instagram.com') && !cleanLower.includes('/p/')) {
+        if (!social_profiles.instagram) social_profiles.instagram = rawHref;
+        web_results_links.push({ type: 'instagram', url: rawHref, title: linkText });
+      } else if (cleanLower.includes('yelp.com/biz/')) {
+        if (!social_profiles.yelp) social_profiles.yelp = rawHref;
+        web_results_links.push({ type: 'yelp', url: rawHref, title: linkText });
+      } else if (cleanLower.includes('tiktok.com/@')) {
+        if (!social_profiles.tiktok) social_profiles.tiktok = rawHref;
+        web_results_links.push({ type: 'tiktok', url: rawHref, title: linkText });
+      } else if (cleanLower.includes('linkedin.com/company/') || cleanLower.includes('linkedin.com/in/')) {
+        if (!social_profiles.linkedin) social_profiles.linkedin = rawHref;
+        web_results_links.push({ type: 'linkedin', url: rawHref, title: linkText });
+      } else if (cleanLower.includes('twitter.com/') || cleanLower.includes('x.com/')) {
+        if (!social_profiles.twitter_x) social_profiles.twitter_x = rawHref;
+        web_results_links.push({ type: 'twitter_x', url: rawHref, title: linkText });
+      } else if (cleanLower.includes('youtube.com/c/') || cleanLower.includes('youtube.com/@') || cleanLower.includes('youtube.com/channel/')) {
+        if (!social_profiles.youtube) social_profiles.youtube = rawHref;
+        web_results_links.push({ type: 'youtube', url: rawHref, title: linkText });
+      } else if (cleanLower.includes('mapquest.com')) {
+        if (!social_profiles.mapquest) social_profiles.mapquest = rawHref;
+        web_results_links.push({ type: 'mapquest', url: rawHref, title: linkText });
       } else if (
-        !unlinkedSite &&
-        !cleanLower.includes('yelp.com') &&
-        !cleanLower.includes('mapquest.com') &&
-        !cleanLower.includes('bbb.org') &&
-        !cleanLower.includes('yellowpages.com') &&
-        !cleanLower.includes('tripadvisor.com') &&
-        !cleanLower.includes('waze.com')
+        cleanLower.includes('yellowpages.com') ||
+        cleanLower.includes('bbb.org') ||
+        cleanLower.includes('angi.com') ||
+        cleanLower.includes('homeadvisor.com') ||
+        cleanLower.includes('tripadvisor.com') ||
+        cleanLower.includes('thumbtack.com') ||
+        cleanLower.includes('houzz.com')
       ) {
-        unlinkedSite = rawHref;
+        web_results_links.push({ type: 'directory', url: rawHref, title: linkText });
+      } else {
+        // Discovered candidate direct website
+        if (!discovered_website) {
+          discovered_website = rawHref;
+        }
+        web_results_links.push({ type: 'website', url: rawHref, title: linkText });
       }
     });
 
-    return { socials, unlinkedSite };
+    return { web_results_links, social_profiles, discovered_website };
   }
 
   /**
-   * Deep Inspection: Auto-scroll open detail pane and extract standard fields + web results
+   * Deep Crawl of the currently selected place profile
    */
-  async function deepInspectOpenPlace() {
+  async function deepCrawlSelectedPlace() {
     const detailPane = getPlaceDetailsPane();
+
+    // Auto-scroll the detail pane to trigger lazy rendering of Web results & About section
     if (detailPane && detailPane.scrollHeight > detailPane.clientHeight) {
-      // Auto-scroll detail panel from top to bottom to force lazy sections to render
       detailPane.scrollTop = detailPane.scrollHeight;
       try {
         detailPane.dispatchEvent(new WheelEvent('wheel', { deltaY: 1000, bubbles: true }));
@@ -172,6 +205,7 @@
       await new Promise((r) => setTimeout(r, 450));
     }
 
+    // 1. Business Name
     const nameEl = document.querySelector(
       'h1.DUwDvf, [class*="header-title-title"], div.x3AX1-LfntMc-header-title-title, h1'
     );
@@ -182,7 +216,7 @@
 
     const currentMapsUrl = window.location.href;
 
-    // Rating & Reviews
+    // 2. Rating & Reviews Count
     let rating = 0;
     let reviewsCount = 0;
     const ratingEl = document.querySelector('div.F7nice, span.MW4etd, [aria-label*="stars"]');
@@ -195,7 +229,14 @@
       if (matchRev) reviewsCount = parseInt(matchRev[1].replace(/,/g, ''), 10);
     }
 
-    // Phone
+    // 3. Category
+    let category = '';
+    const catBtn = document.querySelector('button[jsaction*="category"], button.DkEaL, [data-item-id*="address"] + div');
+    if (catBtn) {
+      category = cleanText(catBtn.innerText || '');
+    }
+
+    // 4. Phone
     let phone = '';
     const phoneBtn = document.querySelector(
       'button[data-item-id*="phone"], button[aria-label*="Phone"], [data-tooltip*="phone"]'
@@ -207,7 +248,7 @@
       if (pMatch) phone = cleanText(pMatch[0]);
     }
 
-    // Address
+    // 5. Address
     let address = '';
     const addressBtn = document.querySelector(
       'button[data-item-id*="address"], button[aria-label*="Address"], [data-tooltip*="address"]'
@@ -216,8 +257,22 @@
       address = cleanText(addressBtn.innerText || addressBtn.getAttribute('aria-label') || '');
     }
 
-    // Primary Website Button in GMB header
-    let gmbWebsiteUrl = '';
+    // 6. Opening Hours / Operational Status
+    let openingHours = '';
+    const hoursEl = document.querySelector('div.t39EBf, span.ZDu9vd, div[aria-label*="hours"]');
+    if (hoursEl) {
+      openingHours = cleanText(hoursEl.innerText || hoursEl.getAttribute('aria-label') || '');
+    }
+
+    // 7. Business Description
+    let description = '';
+    const descEl = document.querySelector('div.PYvSYb, div.m6QErb div[aria-label*="About"]');
+    if (descEl) {
+      description = cleanText(descEl.innerText || '');
+    }
+
+    // 8. Official GMB Website Button Link
+    let gmb_website_url = null;
     const webBtn = document.querySelector(
       'a[data-item-id="authority"], a[aria-label*="Website"], a[data-tooltip*="website"]'
     );
@@ -229,12 +284,13 @@
           raw = p.get('q') || raw;
         } catch (e) {}
       }
-      gmbWebsiteUrl = raw;
+      gmb_website_url = raw;
     }
 
-    // Deep inspect "Web results" & Socials in place pane
-    const { socials, unlinkedSite } = extractWebResultsAndSocials(document);
-    const finalWebsite = gmbWebsiteUrl || unlinkedSite || null;
+    // 9. Web Results & Social Media Harvester
+    const { web_results_links, social_profiles, discovered_website } = harvestWebResultsAndSocials(document);
+
+    const finalWebsiteUrl = gmb_website_url || discovered_website || null;
 
     const existingIndex = scrapedLeads.findIndex(
       (l) =>
@@ -242,31 +298,36 @@
         l.business_name.toLowerCase() === businessName.toLowerCase()
     );
 
+    // Normalized Raw Payload sent to Backend
     const lead = {
       id: 'ext_' + Date.now() + '_' + Math.random().toString(36).substr(2, 7),
       business_name: businessName,
       phone: phone || null,
       rating: rating || 0,
       reviews_count: reviewsCount || 0,
+      category: category || null,
+      address: address || null,
+      opening_hours: openingHours || null,
+      description: description || null,
       status: 'Open',
       maps_url: currentMapsUrl,
-      website_url: finalWebsite,
-      socials: Object.keys(socials).length > 0 ? socials : null,
+      gmb_website_url: gmb_website_url,
+      website_url: finalWebsiteUrl,
+      discovered_website: discovered_website,
+      web_results_links: web_results_links.length > 0 ? web_results_links : null,
+      social_profiles: social_profiles,
+      socials: social_profiles,
       email: null,
-      address: address || null,
       scraped_at: new Date().toISOString(),
     };
 
     if (existingIndex !== -1) {
       scrapedLeads[existingIndex] = {
         ...scrapedLeads[existingIndex],
-        website_url: scrapedLeads[existingIndex].website_url || finalWebsite,
-        socials:
-          socials && Object.keys(socials).length > 0
-            ? socials
-            : scrapedLeads[existingIndex].socials,
-        phone: phone || scrapedLeads[existingIndex].phone,
-        address: address || scrapedLeads[existingIndex].address,
+        ...lead,
+        website_url: scrapedLeads[existingIndex].website_url || finalWebsiteUrl,
+        social_profiles: social_profiles || scrapedLeads[existingIndex].social_profiles,
+        socials: social_profiles || scrapedLeads[existingIndex].socials,
       };
       return 0;
     }
@@ -278,7 +339,7 @@
   }
 
   /**
-   * Fast feed extractor (grabs high-level list items)
+   * Fast feed extractor (grabs feed cards before deep profile inspection)
    */
   function extractQuickFeedFromDOM() {
     let count = 0;
@@ -362,7 +423,11 @@
         reviews_count: reviewsCount || 0,
         status: 'Open',
         maps_url: mapsUrl || window.location.href,
+        gmb_website_url: websiteUrl || null,
         website_url: websiteUrl || null,
+        discovered_website: null,
+        web_results_links: null,
+        social_profiles: null,
         socials: null,
         email: null,
         scraped_at: new Date().toISOString(),
@@ -378,26 +443,26 @@
   }
 
   /**
-   * Master Deep Scraper Loop:
-   * Clicks each business item, auto-scrolls its details pane, and extracts Web results
+   * Master Scraper Loop:
+   * Iterates through all cards, clicks to open detail panel, deep crawls, and scrolls feed.
    */
-  async function runDeepScrapeLoop() {
+  async function runScrapeLoop() {
     const feedContainer = getSearchFeedContainer();
     let processedCards = 0;
     let consecutiveNoNew = 0;
 
-    console.log('[FetchPro] Starting Deep Profile Scraper loop...');
-    updateFloatingHUD('Inspecting Profiles & Web results', scrapedLeads.length, true);
+    console.log('[FetchPro] Starting GMB Deep Crawl loop...');
+    updateFloatingHUD('Crawling Profiles & Web results', scrapedLeads.length, true);
 
     while (isScraping && scrapedLeads.length < maxLeadsTarget) {
       const cards = Array.from(document.querySelectorAll('a.hfpxzc, div.Nv2PK a[href*="/maps/place/"]'));
 
       if (cards.length === 0) {
         extractQuickFeedFromDOM();
-        await deepInspectOpenPlace();
+        await deepCrawlSelectedPlace();
       }
 
-      // Iterate over visible cards with Click & Deep Scroll
+      // Iterate through visible cards
       for (let i = processedCards; i < cards.length && isScraping; i++) {
         if (scrapedLeads.length >= maxLeadsTarget) break;
 
@@ -405,14 +470,14 @@
         processedCards = i + 1;
 
         try {
-          // 1. Click place card
+          // 1. Click card to open overview & details
           cardAnchor.click();
           await new Promise((r) => setTimeout(r, 700));
 
-          // 2. Auto-scroll detail pane to load Web results and bottom social links
-          await deepInspectOpenPlace();
+          // 2. Auto-scroll detail panel and extract Web results + social links
+          await deepCrawlSelectedPlace();
 
-          updateFloatingHUD('Inspecting Profiles & Web results', scrapedLeads.length, true);
+          updateFloatingHUD('Crawling Profiles & Web results', scrapedLeads.length, true);
           chrome.storage.local.set({ leadflow_leads: scrapedLeads });
 
           chrome.runtime
@@ -424,11 +489,11 @@
             })
             .catch(() => {});
         } catch (cardErr) {
-          console.warn('[FetchPro] Error inspecting place card:', cardErr);
+          console.warn('[FetchPro] Card crawl error:', cardErr);
         }
       }
 
-      // Scroll results feed to reveal more businesses
+      // Scroll results feed
       if (feedContainer && feedContainer !== document.body) {
         feedContainer.scrollTop += 850;
         try {
@@ -455,7 +520,7 @@
 
     isScraping = false;
     chrome.storage.local.set({ leadflow_leads: scrapedLeads });
-    updateFloatingHUD('Deep inspection complete', scrapedLeads.length, false);
+    updateFloatingHUD('Crawl Complete', scrapedLeads.length, false);
 
     chrome.runtime
       .sendMessage({
@@ -483,7 +548,7 @@
 
     if (message.type === 'EXTRACT_NOW') {
       extractQuickFeedFromDOM();
-      deepInspectOpenPlace().then(() => {
+      deepCrawlSelectedPlace().then(() => {
         chrome.storage.local.set({ leadflow_leads: scrapedLeads });
         updateFloatingHUD('Extracted profile & Web results', scrapedLeads.length, false);
         sendResponse({ status: 'OK', count: scrapedLeads.length, leads: scrapedLeads });
@@ -498,9 +563,9 @@
       }
 
       isScraping = true;
-      maxLeadsTarget = message.maxLeads || 30;
+      maxLeadsTarget = message.maxLeads || 100;
 
-      runDeepScrapeLoop().catch((err) => {
+      runScrapeLoop().catch((err) => {
         console.error('[FetchPro] Scrape error:', err);
         isScraping = false;
         updateFloatingHUD('Stopped', scrapedLeads.length, false);
@@ -537,7 +602,7 @@
     return true;
   });
 
-  // Listen to manual place clicks
+  // Manual click listener
   document.addEventListener('click', (e) => {
     const target = e.target;
     if (
@@ -547,14 +612,14 @@
         target.closest('[role="article"]'))
     ) {
       setTimeout(() => {
-        deepInspectOpenPlace().then(() => {
+        deepCrawlSelectedPlace().then(() => {
           chrome.storage.local.set({ leadflow_leads: scrapedLeads });
         });
       }, 900);
     }
   });
 
-  // Restore cached leads
+  // Restore stored leads
   chrome.storage.local.get(['leadflow_leads'], (res) => {
     if (res && Array.isArray(res.leadflow_leads) && res.leadflow_leads.length > 0) {
       scrapedLeads = res.leadflow_leads;
@@ -566,13 +631,13 @@
     }
   });
 
-  // Initial check
+  // Initial pass
   setTimeout(() => {
     extractQuickFeedFromDOM();
-    deepInspectOpenPlace().then(() => {
+    deepCrawlSelectedPlace().then(() => {
       if (scrapedLeads.length > 0) {
         chrome.storage.local.set({ leadflow_leads: scrapedLeads });
-        updateFloatingHUD('Found visible leads', scrapedLeads.length, false);
+        updateFloatingHUD('Ready', scrapedLeads.length, false);
       }
     });
   }, 1000);

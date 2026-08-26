@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbGetLeads, dbUpdateLead } from '@/lib/supabase';
-import { auditWebsite } from '@/lib/audit';
-import { generateColdPitch } from '@/lib/gemini';
-import { calculateOpportunityScore } from '@/lib/scoring';
+import { runLeadAuditAndQualification } from '@/lib/audit-engine';
 import { Lead } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +22,7 @@ export async function OPTIONS() {
   return corsResponse({ ok: true });
 }
 
-// POST /api/leads/batch-audit - Batch audit with opportunity scoring and AI qualification reasoning
+// POST /api/leads/batch-audit - Batch audit with server-side audit engine and AI qualification reasoning
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -35,13 +33,13 @@ export async function POST(req: NextRequest) {
     }
 
     const allLeads = await dbGetLeads();
-    const leadsToAudit = allLeads.filter((l) => leadIds.includes(l.id) && !!l.website_url);
+    const leadsToAudit = allLeads.filter((l) => leadIds.includes(l.id));
 
     if (leadsToAudit.length === 0) {
       return corsResponse(
         {
           success: false,
-          error: 'None of the selected leads have website URLs to audit.',
+          error: 'None of the selected leads were found in database.',
         },
         400
       );
@@ -49,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     const updatedLeads: Lead[] = [];
 
-    // Process with controlled concurrency of 3
+    // Controlled concurrency of 3
     const CONCURRENCY = 3;
     for (let i = 0; i < leadsToAudit.length; i += CONCURRENCY) {
       const chunk = leadsToAudit.slice(i, i + CONCURRENCY);
@@ -57,39 +55,41 @@ export async function POST(req: NextRequest) {
       const chunkResults = await Promise.all(
         chunk.map(async (lead) => {
           try {
-            const auditResult = await auditWebsite(lead.website_url!, {
-              reviewsCount: lead.reviews_count,
+            const auditRunResult = await runLeadAuditAndQualification(lead, {
+              generatePitch: true,
             });
 
-            const opp = calculateOpportunityScore(lead, auditResult);
-            auditResult.opportunityScore = opp.score;
-            auditResult.opportunityReasons = opp.reasons;
-            auditResult.qualification_log = opp.qualification_log;
-
-            // Generate pitch for hot leads (zero-waste execution)
-            const pitchResult = await generateColdPitch(
-              { ...lead, status: opp.recommendedStatus },
-              auditResult
-            );
+            const {
+              auditData,
+              is_qualified,
+              opportunity_score,
+              opportunity_reasons,
+              qualification_log,
+              pitchResult,
+              recommendedStatus,
+            } = auditRunResult;
 
             const newEmail =
               lead.email ||
-              (auditResult.extractedEmails.length > 0 ? auditResult.extractedEmails[0] : null);
+              (auditData && auditData.extractedEmails.length > 0 ? auditData.extractedEmails[0] : null);
+
             const combinedSocials = {
-              ...(lead.socials || {}),
-              ...(auditResult.socials || {}),
+              ...(lead.social_profiles || lead.socials || {}),
+              ...(auditData?.socials || {}),
             };
 
             const updated = await dbUpdateLead(lead.id, {
-              status: lead.status === 'emailed' ? 'emailed' : opp.recommendedStatus,
-              audit_data: auditResult,
-              opportunity_score: opp.score,
-              opportunity_reasons: opp.reasons,
-              qualification_log: opp.qualification_log,
+              status: lead.status === 'emailed' ? 'emailed' : recommendedStatus,
+              audit_data: auditData,
+              is_qualified: is_qualified,
+              opportunity_score: opportunity_score,
+              opportunity_reasons: opportunity_reasons,
+              qualification_log: qualification_log,
               email: newEmail,
               socials: Object.keys(combinedSocials).length > 0 ? combinedSocials : null,
-              ai_subject: pitchResult.subject,
-              ai_pitch: pitchResult.pitch,
+              social_profiles: Object.keys(combinedSocials).length > 0 ? combinedSocials : null,
+              ai_subject: pitchResult?.subject || lead.ai_subject,
+              ai_pitch: pitchResult?.pitch || lead.ai_pitch,
             });
 
             return updated;
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     return corsResponse({
       success: true,
       auditedCount: updatedLeads.length,
-      message: `Audited ${updatedLeads.length} website(s) with PageSpeed & Qualification Reasoning.`,
+      message: `Audited ${updatedLeads.length} lead(s) with PageSpeed, CWV & Qualification Reasoning.`,
       leads: updatedLeads,
     });
   } catch (error: any) {

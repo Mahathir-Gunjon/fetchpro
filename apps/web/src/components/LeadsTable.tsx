@@ -16,10 +16,10 @@ import {
   Flame,
   CheckSquare,
   Square,
-  HelpCircle,
   Zap,
   Tag,
   Target,
+  FileText,
 } from 'lucide-react';
 
 interface LeadsTableProps {
@@ -65,11 +65,14 @@ export function LeadsTable({
     return leads.filter((lead) => {
       // 1. Tab filter
       if (activeTab === 'hot') {
-        const isHot =
+        const isQualified =
+          lead.is_qualified === true ||
           lead.status === 'hot_lead' ||
-          (typeof lead.opportunity_score === 'number' && lead.opportunity_score >= 45) ||
+          (typeof lead.opportunity_score === 'number' && lead.opportunity_score >= 40) ||
           !lead.website_url;
-        if (!isHot) return false;
+        if (!isQualified) return false;
+      } else if (activeTab === 'all') {
+        // All raw leads
       } else if (activeTab === 'audited') {
         if (
           lead.status !== 'audited' &&
@@ -157,10 +160,11 @@ export function LeadsTable({
     }
   };
 
-  const hotCount = leads.filter(
+  const qualifiedCount = leads.filter(
     (l) =>
+      l.is_qualified === true ||
       l.status === 'hot_lead' ||
-      (l.opportunity_score && l.opportunity_score >= 45) ||
+      (l.opportunity_score && l.opportunity_score >= 40) ||
       !l.website_url
   ).length;
 
@@ -174,8 +178,8 @@ export function LeadsTable({
   ).length;
 
   const tabLabels: { id: DashboardViewTab; label: string; count: number; hot?: boolean }[] = [
-    { id: 'hot', label: '🔥 Qualified / Hot Leads (Top 30%)', count: hotCount, hot: true },
-    { id: 'all', label: 'All Scraped Leads', count: leads.length },
+    { id: 'all', label: 'All Leads', count: leads.length },
+    { id: 'hot', label: '🔥 Qualified Leads', count: qualifiedCount, hot: true },
     { id: 'audited', label: 'Audited Sites', count: leads.filter((l) => !!l.audit_data).length },
     { id: 'nowebsite', label: 'No Website', count: leads.filter((l) => !l.website_url).length },
     { id: 'emailed', label: 'Outreach Sent', count: leads.filter((l) => l.status === 'emailed').length },
@@ -272,11 +276,11 @@ export function LeadsTable({
                     )}
                   </button>
                 </th>
-                <th className="py-3.5 px-4">Business & Reason</th>
+                <th className="py-3.5 px-4">Business & Category</th>
                 <th className="py-3.5 px-4">Contact Info</th>
-                <th className="py-3.5 px-4">Social Profiles</th>
+                <th className="py-3.5 px-4">Social Media</th>
                 <th className="py-3.5 px-4">Website & PageSpeed</th>
-                <th className="py-3.5 px-4">Qualification / Why Picked?</th>
+                <th className="py-3.5 px-4">Audit Status</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -308,14 +312,14 @@ export function LeadsTable({
                   const isSelected = selectedIds.has(lead.id);
                   const isAuditing = auditingId === lead.id || auditingIds.has(lead.id);
                   const hasNoWebsite = !lead.website_url;
-                  const socials = lead.socials || lead.audit_data?.socials;
+                  const socials = lead.social_profiles || lead.socials || lead.audit_data?.socials;
                   const oppScore =
                     typeof lead.opportunity_score === 'number'
                       ? lead.opportunity_score
                       : hasNoWebsite
                       ? 95
                       : 0;
-                  const isHot = lead.status === 'hot_lead' || oppScore >= 45;
+                  const isHot = lead.is_qualified || lead.status === 'hot_lead' || oppScore >= 40;
                   const isTrash =
                     lead.status === 'trash' ||
                     (oppScore <= 15 &&
@@ -353,7 +357,7 @@ export function LeadsTable({
                         </button>
                       </td>
 
-                      {/* Business & Reason */}
+                      {/* Business & Category */}
                       <td className="py-3.5 px-4">
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-2">
@@ -388,6 +392,9 @@ export function LeadsTable({
                           </div>
 
                           <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+                            {lead.category && (
+                              <span className="text-slate-400 font-medium">{lead.category}</span>
+                            )}
                             {lead.rating ? (
                               <span className="font-semibold text-amber-400 flex items-center gap-0.5">
                                 ★ {lead.rating}
@@ -428,8 +435,10 @@ export function LeadsTable({
                         {socials &&
                         (socials.facebook ||
                           socials.instagram ||
+                          socials.yelp ||
                           socials.tiktok ||
                           socials.linkedin ||
+                          socials.twitter_x ||
                           socials.twitter ||
                           socials.youtube) ? (
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -455,6 +464,17 @@ export function LeadsTable({
                                 ig
                               </a>
                             )}
+                            {socials.yelp && (
+                              <a
+                                href={socials.yelp}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="w-6 h-6 rounded-lg bg-rose-600/20 hover:bg-rose-600/40 text-rose-400 flex items-center justify-center font-bold text-[10px] transition-colors"
+                                title="Yelp Profile"
+                              >
+                                yelp
+                              </a>
+                            )}
                             {socials.tiktok && (
                               <a
                                 href={socials.tiktok}
@@ -477,9 +497,9 @@ export function LeadsTable({
                                 in
                               </a>
                             )}
-                            {socials.twitter && (
+                            {(socials.twitter_x || socials.twitter) && (
                               <a
-                                href={socials.twitter}
+                                href={socials.twitter_x || socials.twitter!}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="w-6 h-6 rounded-lg bg-slate-700/40 hover:bg-slate-700 text-slate-300 flex items-center justify-center font-bold text-[10px] transition-colors"
@@ -550,7 +570,7 @@ export function LeadsTable({
                         )}
                       </td>
 
-                      {/* Qualification / Why Picked Modal Trigger */}
+                      {/* Audit Status / Why Picked Trigger */}
                       <td className="py-3.5 px-4">
                         <button
                           onClick={() => onOpenWhyPicked && onOpenWhyPicked(lead)}
@@ -571,10 +591,20 @@ export function LeadsTable({
                         </button>
                       </td>
 
-                      {/* Action Buttons */}
+                      {/* Action Buttons with Prominent "Audit Report" Button */}
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* Re-Audit Button */}
+                          {/* 1. Dedicated "Audit Report" Button */}
+                          <button
+                            onClick={() => onOpenAudit(lead)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-sm shadow-blue-600/20 transition-all"
+                            title="Open Comprehensive Audit Report"
+                          >
+                            <FileText className="w-3 h-3" />
+                            <span>Audit Report</span>
+                          </button>
+
+                          {/* 2. Run Audit on Demand */}
                           {lead.website_url ? (
                             <button
                               onClick={() => onRunAudit(lead.id)}
@@ -590,7 +620,7 @@ export function LeadsTable({
                             </button>
                           ) : null}
 
-                          {/* AI Pitch Button */}
+                          {/* 3. AI Pitch Button */}
                           <button
                             onClick={() => onOpenPitchEditor(lead)}
                             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 transition-colors"
@@ -600,7 +630,7 @@ export function LeadsTable({
                             <span>{lead.status === 'emailed' ? 'Review' : 'Pitch'}</span>
                           </button>
 
-                          {/* Delete Lead Button */}
+                          {/* 4. Delete Lead Button */}
                           <button
                             onClick={() => onDeleteLead(lead.id)}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"

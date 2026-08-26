@@ -6,7 +6,26 @@ export interface SocialLinks {
   tiktok?: string | null;
   linkedin?: string | null;
   twitter?: string | null;
+  twitter_x?: string | null;
   youtube?: string | null;
+  yelp?: string | null;
+  mapquest?: string | null;
+}
+
+export interface WebResultLink {
+  type:
+    | 'website'
+    | 'facebook'
+    | 'instagram'
+    | 'yelp'
+    | 'linkedin'
+    | 'twitter_x'
+    | 'youtube'
+    | 'mapquest'
+    | 'directory'
+    | 'other';
+  url: string;
+  title?: string;
 }
 
 export interface AuditIssue {
@@ -16,19 +35,31 @@ export interface AuditIssue {
   impactScore: number;
 }
 
+export interface CoreWebVitals {
+  fcp?: string; // First Contentful Paint
+  lcp?: string; // Largest Contentful Paint
+  cls?: string; // Cumulative Layout Shift
+  inp?: string; // Interaction to Next Paint
+}
+
 export interface PageSpeedData {
   score: number; // 0 - 100
-  fcp?: string;  // e.g. "1.8 s"
-  lcp?: string;  // e.g. "3.4 s"
+  fcp?: string;
+  lcp?: string;
+  cls?: string;
+  inp?: string;
   isSlow: boolean;
+  webVitals?: CoreWebVitals;
 }
 
 export interface LocalSeoData {
   hasLocalSchema: boolean;
   schemaTypes: string[];
   hasH1: boolean;
+  hasH2: boolean;
   hasTitle: boolean;
   hasDescription: boolean;
+  brokenLinks?: boolean;
 }
 
 export interface CtaCheckData {
@@ -42,10 +73,12 @@ export interface QualificationChecks {
   facebook_page_found: boolean;
   instagram_page_found: boolean;
   tiktok_page_found: boolean;
+  yelp_page_found?: boolean;
   ssl_valid: boolean | null;
   copyright_year: number | null;
   mobile_speed_score: number | null;
   missing_local_schema: boolean | null;
+  seo_issues_count?: number;
 }
 
 export interface QualificationLog {
@@ -105,7 +138,9 @@ export interface AuditData {
     rawText?: string;
   };
   extractedEmails: string[];
+  extractedPhones?: string[];
   socials?: SocialLinks;
+  social_profiles?: SocialLinks;
   issues: AuditIssue[];
   keyRecommendations: string[];
 }
@@ -117,15 +152,24 @@ export interface Lead {
   phone?: string | null;
   rating: number;
   reviews_count: number;
+  category?: string | null;
+  address?: string | null;
+  opening_hours?: string | null;
+  description?: string | null;
   maps_url?: string | null;
+  gmb_website_url?: string | null;
   website_url?: string | null;
+  discovered_website?: string | null;
+  web_results_links?: WebResultLink[] | null;
   email?: string | null;
   status: LeadStatus;
+  is_qualified?: boolean;
   opportunity_score?: number | null;
   opportunity_reasons?: string[] | null;
   qualification_log?: QualificationLog | null;
   audit_data?: AuditData | null;
   socials?: SocialLinks | null;
+  social_profiles?: SocialLinks | null;
   ai_pitch?: string | null;
   ai_subject?: string | null;
   emailed_at?: string | null;
@@ -139,11 +183,20 @@ export interface ExtractedLeadInput {
   phone?: string | null;
   rating?: number;
   reviews_count?: number;
+  category?: string | null;
+  address?: string | null;
+  opening_hours?: string | null;
+  description?: string | null;
   maps_url?: string | null;
+  gmb_website_url?: string | null;
   website_url?: string | null;
-  email?: string | null;
+  discovered_website?: string | null;
+  web_results_links?: WebResultLink[] | null;
   socials?: SocialLinks | null;
+  social_profiles?: SocialLinks | null;
+  email?: string | null;
   status?: string;
+  is_qualified?: boolean;
   qualification_log?: QualificationLog | null;
 }
 
@@ -156,6 +209,7 @@ export interface PitchGenerationResult {
 export interface DashboardStats {
   totalLeads: number;
   auditedLeads: number;
+  qualifiedLeadsCount: number;
   hotLeadsCount: number;
   trashLeadsCount: number;
   averageHealthScore: number;

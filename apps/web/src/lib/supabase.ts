@@ -65,10 +65,20 @@ export async function dbCreateLead(leadData: Partial<Lead>): Promise<Lead> {
     phone: leadData.phone || null,
     rating: leadData.rating || 0,
     reviews_count: leadData.reviews_count || 0,
+    category: leadData.category || null,
+    address: leadData.address || null,
     maps_url: leadData.maps_url || null,
+    gmb_website_url: leadData.gmb_website_url || null,
     website_url: leadData.website_url || null,
+    discovered_website: leadData.discovered_website || null,
+    web_results_links: leadData.web_results_links || null,
     email: leadData.email || null,
     socials: leadData.socials || null,
+    social_profiles: leadData.social_profiles || leadData.socials || null,
+    is_qualified: leadData.is_qualified ?? false,
+    opportunity_score: leadData.opportunity_score || null,
+    opportunity_reasons: leadData.opportunity_reasons || null,
+    qualification_log: leadData.qualification_log || null,
     status: leadData.status || 'pending',
     audit_data: leadData.audit_data || null,
     ai_pitch: leadData.ai_pitch || null,
@@ -103,10 +113,20 @@ export async function dbBatchInsertLeads(leads: Partial<Lead>[]): Promise<Lead[]
     phone: l.phone || null,
     rating: typeof l.rating === 'number' ? l.rating : 0,
     reviews_count: typeof l.reviews_count === 'number' ? l.reviews_count : 0,
+    category: l.category || null,
+    address: l.address || null,
     maps_url: l.maps_url || null,
+    gmb_website_url: l.gmb_website_url || null,
     website_url: l.website_url || null,
+    discovered_website: l.discovered_website || null,
+    web_results_links: l.web_results_links || null,
     email: l.email || null,
     socials: l.socials || null,
+    social_profiles: l.social_profiles || l.socials || null,
+    is_qualified: l.is_qualified ?? false,
+    opportunity_score: l.opportunity_score || null,
+    opportunity_reasons: l.opportunity_reasons || null,
+    qualification_log: l.qualification_log || null,
     status: (l.status as any) || 'pending',
     audit_data: l.audit_data || null,
     ai_pitch: l.ai_pitch || null,
@@ -191,12 +211,17 @@ export async function dbResetMockData(): Promise<Lead[]> {
 export async function dbGetStats(): Promise<DashboardStats> {
   const leads = await dbGetLeads();
   const totalLeads = leads.length;
-  const auditedLeads = leads.filter((l) => l.status === 'audited' || l.status === 'emailed' || l.status === 'hot_lead' || l.status === 'trash').length;
-  const hotLeadsCount = leads.filter((l) => l.status === 'hot_lead' || (l.opportunity_score && l.opportunity_score >= 45)).length;
+  const auditedLeads = leads.filter(
+    (l) => l.status === 'audited' || l.status === 'emailed' || l.status === 'hot_lead' || l.status === 'trash' || !!l.audit_data
+  ).length;
+  const qualifiedLeadsCount = leads.filter(
+    (l) => l.is_qualified === true || l.status === 'hot_lead' || (l.opportunity_score && l.opportunity_score >= 40)
+  ).length;
+  const hotLeadsCount = qualifiedLeadsCount;
   const trashLeadsCount = leads.filter((l) => l.status === 'trash').length;
   const emailsSent = leads.filter((l) => l.status === 'emailed').length;
-  const leadsWithWebsites = leads.filter((l) => !!l.website_url).length;
-  const leadsWithoutWebsites = leads.filter((l) => !l.website_url).length;
+  const leadsWithWebsites = leads.filter((l) => !!(l.website_url || l.gmb_website_url)).length;
+  const leadsWithoutWebsites = leads.filter((l) => !l.website_url && !l.gmb_website_url).length;
   const leadsWithPhones = leads.filter((l) => !!l.phone).length;
 
   const scoredLeads = leads.filter((l) => l.audit_data?.healthScore !== undefined);
@@ -207,6 +232,7 @@ export async function dbGetStats(): Promise<DashboardStats> {
   return {
     totalLeads,
     auditedLeads,
+    qualifiedLeadsCount,
     hotLeadsCount,
     trashLeadsCount,
     averageHealthScore,

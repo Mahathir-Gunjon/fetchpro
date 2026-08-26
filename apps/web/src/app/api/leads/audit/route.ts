@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbGetLeadById, dbUpdateLead } from '@/lib/supabase';
-import { auditWebsite } from '@/lib/audit';
-import { generateColdPitch } from '@/lib/gemini';
-import { calculateOpportunityScore } from '@/lib/scoring';
+import { runLeadAuditAndQualification } from '@/lib/audit-engine';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -23,7 +21,7 @@ export async function OPTIONS() {
   return corsResponse({ ok: true });
 }
 
-// POST /api/leads/audit - Trigger website & SEO audit + qualification reasoning
+// POST /api/leads/audit - Trigger server-side multi-layer website & SEO audit + qualification logic
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -37,56 +35,69 @@ export async function POST(req: NextRequest) {
       if (!lead) {
         return corsResponse({ success: false, error: 'Lead not found' }, 404);
       }
-      targetUrl = targetUrl || lead.website_url;
+      targetUrl = targetUrl || lead.gmb_website_url || lead.website_url || lead.discovered_website;
     }
 
-    if (!targetUrl) {
+    if (!targetUrl && !lead) {
       return corsResponse(
-        { success: false, error: 'Website URL is required for audit' },
+        { success: false, error: 'Website URL or Lead ID is required for audit' },
         400
       );
     }
 
-    // Run audit
-    const auditData = await auditWebsite(targetUrl, {
-      reviewsCount: lead?.reviews_count,
-    });
+    // Run Full Server-side Audit & Qualification Pipeline
+    const auditRunResult = await runLeadAuditAndQualification(
+      lead || {
+        website_url: targetUrl,
+        gmb_website_url: targetUrl,
+      },
+      { generatePitch: true }
+    );
 
-    // Calculate Opportunity Score, Funnel Status & Qualification Reasoning
-    const opp = calculateOpportunityScore(lead || { website_url: targetUrl }, auditData);
-    auditData.opportunityScore = opp.score;
-    auditData.opportunityReasons = opp.reasons;
-    auditData.qualification_log = opp.qualification_log;
+    const {
+      auditData,
+      is_qualified,
+      opportunity_score,
+      opportunity_reasons,
+      qualification_log,
+      pitchResult,
+      recommendedStatus,
+    } = auditRunResult;
 
-    // If linked to a lead, generate pitch and update DB
+    // If linked to a lead, update DB
     let updatedLead = lead;
     if (leadId && lead) {
-      const pitchResult = await generateColdPitch(
-        { ...lead, status: opp.recommendedStatus },
-        auditData
-      );
       const newEmail =
-        lead.email || (auditData.extractedEmails.length > 0 ? auditData.extractedEmails[0] : null);
+        lead.email ||
+        (auditData && auditData.extractedEmails.length > 0 ? auditData.extractedEmails[0] : null);
+
+      const combinedSocials = {
+        ...(lead.social_profiles || lead.socials || {}),
+        ...(auditData?.socials || {}),
+      };
 
       updatedLead = await dbUpdateLead(leadId, {
-        website_url: targetUrl,
+        website_url: targetUrl || lead.website_url,
         audit_data: auditData,
-        socials: lead.socials || auditData.socials,
+        socials: Object.keys(combinedSocials).length > 0 ? combinedSocials : null,
+        social_profiles: Object.keys(combinedSocials).length > 0 ? combinedSocials : null,
         email: newEmail,
-        opportunity_score: opp.score,
-        opportunity_reasons: opp.reasons,
-        qualification_log: opp.qualification_log,
-        status: lead.status === 'emailed' ? 'emailed' : opp.recommendedStatus,
-        ai_subject: pitchResult.subject,
-        ai_pitch: pitchResult.pitch,
+        is_qualified: is_qualified,
+        opportunity_score: opportunity_score,
+        opportunity_reasons: opportunity_reasons,
+        qualification_log: qualification_log,
+        status: lead.status === 'emailed' ? 'emailed' : recommendedStatus,
+        ai_subject: pitchResult?.subject || lead.ai_subject,
+        ai_pitch: pitchResult?.pitch || lead.ai_pitch,
       });
     }
 
     return corsResponse({
       success: true,
       auditData,
-      opportunityScore: opp.score,
-      qualification_log: opp.qualification_log,
+      is_qualified,
+      opportunityScore: opportunity_score,
+      qualification_log,
       lead: updatedLead,
     });
   } catch (error: any) {

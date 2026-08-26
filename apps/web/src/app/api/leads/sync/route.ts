@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbBatchInsertLeads } from '@/lib/supabase';
 import { ExtractedLeadInput } from '@/lib/types';
-import { calculateOpportunityScore } from '@/lib/scoring';
+import { evaluateQualification } from '@/lib/audit-engine';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -22,7 +22,7 @@ export async function OPTIONS() {
   return corsResponse({ ok: true });
 }
 
-// POST /api/leads/sync - Batch sync from Chrome Extension with initial Opportunity & Qualification Scoring
+// POST /api/leads/sync - Batch sync from Chrome Extension with High-Fidelity GMB extraction
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get('Authorization');
@@ -45,13 +45,18 @@ export async function POST(req: NextRequest) {
     // Insert batch of leads with initial opportunity score & qualification log
     const insertedLeads = await dbBatchInsertLeads(
       rawLeads.map((l) => {
-        const initialOpp = calculateOpportunityScore(
+        const targetUrl = l.gmb_website_url || l.website_url || l.discovered_website;
+        const socials = l.social_profiles || l.socials;
+
+        const qual = evaluateQualification(
           {
             business_name: l.business_name,
-            website_url: l.website_url,
+            website_url: targetUrl,
+            gmb_website_url: l.gmb_website_url,
+            discovered_website: l.discovered_website,
+            social_profiles: socials,
             rating: l.rating,
             reviews_count: l.reviews_count,
-            socials: l.socials,
           },
           null
         );
@@ -61,14 +66,21 @@ export async function POST(req: NextRequest) {
           phone: l.phone || null,
           rating: typeof l.rating === 'number' ? l.rating : 0,
           reviews_count: typeof l.reviews_count === 'number' ? l.reviews_count : 0,
+          category: l.category || null,
+          address: l.address || null,
           maps_url: l.maps_url || null,
-          website_url: l.website_url || null,
-          socials: l.socials || null,
+          gmb_website_url: l.gmb_website_url || null,
+          website_url: targetUrl || null,
+          discovered_website: l.discovered_website || null,
+          web_results_links: l.web_results_links || null,
+          socials: socials || null,
+          social_profiles: socials || null,
           email: l.email || null,
-          opportunity_score: initialOpp.score,
-          opportunity_reasons: initialOpp.reasons,
-          qualification_log: initialOpp.qualification_log,
-          status: !l.website_url ? 'hot_lead' : 'pending',
+          is_qualified: qual.is_qualified,
+          opportunity_score: qual.opportunity_score,
+          opportunity_reasons: qual.opportunity_reasons,
+          qualification_log: qual.qualification_log,
+          status: !targetUrl ? 'hot_lead' : 'pending',
         };
       })
     );
@@ -76,7 +88,7 @@ export async function POST(req: NextRequest) {
     return corsResponse({
       success: true,
       syncedCount: insertedLeads.length,
-      message: `Successfully synced ${insertedLeads.length} leads to FetchPro with Deep Qualification Reasoning.`,
+      message: `Successfully synced ${insertedLeads.length} leads to FetchPro! Ready for multi-layer audit.`,
       leads: insertedLeads,
     });
   } catch (error: any) {

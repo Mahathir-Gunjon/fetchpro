@@ -7,7 +7,7 @@ import { Navbar } from '@/components/Navbar';
 import { Sidebar, DashboardViewTab } from '@/components/Sidebar';
 import { StatsOverview } from '@/components/StatsOverview';
 import { LeadsTable } from '@/components/LeadsTable';
-import { AuditDetailsModal } from '@/components/AuditDetailsModal';
+import { AuditReportModal } from '@/components/AuditReportModal';
 import { PitchEditorModal } from '@/components/PitchEditorModal';
 import { WhyPickedModal } from '@/components/WhyPickedModal';
 import { AddLeadModal } from '@/components/AddLeadModal';
@@ -20,10 +20,11 @@ export default function DashboardPage() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [leads, setLeads] = useState<Lead[]>(INITIAL_MOCK_LEADS);
-  const [activeTab, setActiveTab] = useState<DashboardViewTab>('hot');
+  const [activeTab, setActiveTab] = useState<DashboardViewTab>('all');
   const [stats, setStats] = useState<DashboardStats>({
     totalLeads: 0,
     auditedLeads: 0,
+    qualifiedLeadsCount: 0,
     hotLeadsCount: 0,
     trashLeadsCount: 0,
     averageHealthScore: 0,
@@ -88,14 +89,17 @@ export default function DashboardPage() {
         l.status === 'audited' ||
         l.status === 'emailed' ||
         l.status === 'hot_lead' ||
-        l.status === 'trash'
+        l.status === 'trash' ||
+        !!l.audit_data
     ).length;
-    const hotLeadsCount = leadList.filter(
+    const qualifiedLeadsCount = leadList.filter(
       (l) =>
+        l.is_qualified === true ||
         l.status === 'hot_lead' ||
-        (l.opportunity_score && l.opportunity_score >= 45) ||
+        (l.opportunity_score && l.opportunity_score >= 40) ||
         !l.website_url
     ).length;
+    const hotLeadsCount = qualifiedLeadsCount;
     const trashLeadsCount = leadList.filter(
       (l) =>
         l.status === 'trash' ||
@@ -105,8 +109,8 @@ export default function DashboardPage() {
           l.audit_data.healthScore >= 85)
     ).length;
     const emailsSent = leadList.filter((l) => l.status === 'emailed').length;
-    const leadsWithWebsites = leadList.filter((l) => !!l.website_url).length;
-    const leadsWithoutWebsites = leadList.filter((l) => !l.website_url).length;
+    const leadsWithWebsites = leadList.filter((l) => !!(l.website_url || l.gmb_website_url)).length;
+    const leadsWithoutWebsites = leadList.filter((l) => !l.website_url && !l.gmb_website_url).length;
     const leadsWithPhones = leadList.filter((l) => !!l.phone).length;
 
     const scored = leadList.filter((l) => l.audit_data?.healthScore !== undefined);
@@ -120,6 +124,7 @@ export default function DashboardPage() {
     return {
       totalLeads,
       auditedLeads,
+      qualifiedLeadsCount,
       hotLeadsCount,
       trashLeadsCount,
       averageHealthScore,
@@ -211,8 +216,11 @@ export default function DashboardPage() {
   // Run Individual Website Audit
   const handleRunAudit = async (leadId: string) => {
     const targetLead = leads.find((l) => l.id === leadId);
-    if (!targetLead || !targetLead.website_url) {
-      addToast('error', 'Cannot audit lead', 'Lead has no website URL.');
+    const targetUrl =
+      targetLead?.gmb_website_url || targetLead?.website_url || targetLead?.discovered_website;
+
+    if (!targetLead || !targetUrl) {
+      addToast('error', 'Cannot audit lead', 'Lead has no website URL to audit.');
       return;
     }
 
@@ -221,7 +229,7 @@ export default function DashboardPage() {
       const res = await fetch('/api/leads/audit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leadId, url: targetLead.website_url }),
+        body: JSON.stringify({ leadId, url: targetUrl }),
       });
 
       const data = await res.json();
@@ -266,7 +274,7 @@ export default function DashboardPage() {
     const idSet = new Set(leadIds);
     setAuditingIds(idSet);
 
-    addToast('info', 'Batch Audit Started', `Auditing ${leadIds.length} website(s)...`);
+    addToast('info', 'Batch Audit Started', `Auditing ${leadIds.length} lead(s)...`);
 
     try {
       const res = await fetch('/api/leads/batch-audit', {
@@ -509,7 +517,7 @@ export default function DashboardPage() {
                 <span>FetchPro Lead Pipeline & Website Audits</span>
               </h1>
               <p className="text-xs text-slate-400 mt-1">
-                Filter prospects, inspect social profiles (FB, IG, TikTok), audit websites on demand, and dispatch high-converting cold pitches.
+                Filter prospects, inspect social profiles (FB, IG, Yelp, TikTok), audit websites on demand, and dispatch high-converting cold pitches.
               </p>
             </div>
 
@@ -558,12 +566,13 @@ export default function DashboardPage() {
       </div>
 
       {/* Modals */}
-      <AuditDetailsModal
+      <AuditReportModal
         lead={selectedAuditLead}
         isOpen={!!selectedAuditLead}
         onClose={() => setSelectedAuditLead(null)}
         onAuditAgain={handleRunAudit}
-        onOpenPitchEditor={(lead) => setSelectedPitchLead(lead)}
+        onSendEmail={handleSendEmail}
+        onRegeneratePitch={handleRegeneratePitch}
         isAuditing={auditingId === selectedAuditLead?.id}
       />
 
