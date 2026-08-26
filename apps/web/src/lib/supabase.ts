@@ -119,6 +119,7 @@ export async function dbBatchInsertLeads(leads: Partial<Lead>[]): Promise<Lead[]
     gmb_website_url: l.gmb_website_url || null,
     website_url: l.website_url || null,
     discovered_website: l.discovered_website || null,
+    website_source: l.website_source || (l.gmb_website_url ? 'GMB_BUTTON' : (l.discovered_website || l.website_url ? 'WEB_RESULTS' : 'NONE')),
     web_results_links: l.web_results_links || null,
     email: l.email || null,
     socials: l.socials || null,
