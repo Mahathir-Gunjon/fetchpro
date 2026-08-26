@@ -813,13 +813,30 @@ export function evaluateQualification(
 
   // Case 1: No Website found anywhere
   if (!targetUrl) {
+    const hasAnySocial = Boolean(
+      socials.facebook ||
+        socials.instagram ||
+        socials.yelp ||
+        socials.tiktok ||
+        socials.linkedin ||
+        socials.twitter_x
+    );
+
     const reasons = [
       'No Website Found on Google Maps Profile or Web Results',
       'Immediate requirement for full professional website build',
     ];
-    if (socials.facebook || socials.instagram || socials.yelp) {
-      reasons.push('Active local presence on social channels without dedicated domain');
+
+    if (hasAnySocial) {
+      reasons.push('Active local presence on social channels without dedicated website');
+    } else {
+      reasons.push('Zero online digital presence (No website & no verified social profiles)');
     }
+
+    const qualification_tag = hasAnySocial ? 'NO_WEBSITE' : 'NO_ONLINE_PRESENCE';
+    const primary_reason = hasAnySocial
+      ? 'No Website Found on Profile or Web Results (Active Social Footprint - High Intent)'
+      : 'Zero Online Presence (No Website & No Social Profiles Found on GMB)';
 
     return {
       is_qualified: true,
@@ -827,8 +844,8 @@ export function evaluateQualification(
       opportunity_reasons: reasons,
       qualification_log: {
         is_qualified: true,
-        primary_reason: 'No Website Found on Profile or Web Results (Immediate Need for Full Site Build)',
-        qualification_tag: 'NO_WEBSITE',
+        primary_reason,
+        qualification_tag,
         checks: {
           google_maps_website_button: false,
           web_results_matched: false,

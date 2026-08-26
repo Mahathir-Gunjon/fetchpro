@@ -20,6 +20,7 @@ import {
   Copy,
   Check,
   ChevronDown,
+  Layers,
 } from 'lucide-react';
 import { DashboardViewTab } from './Sidebar';
 
@@ -359,8 +360,8 @@ export function LeadsTable({
                 </button>
               </th>
               <th className="py-3.5 px-4 min-w-[220px]">Business</th>
-              <th className="py-3.5 px-4 min-w-[200px]">Website Health</th>
-              <th className="py-3.5 px-4 min-w-[160px]">Social Footprint</th>
+              <th className="py-3.5 px-4 min-w-[210px]">Website & Health</th>
+              <th className="py-3.5 px-4 min-w-[180px]">Social Footprint</th>
               <th className="py-3.5 px-4 min-w-[180px]">Contact Info</th>
               <th className="py-3.5 px-4 text-right min-w-[190px]">Actions</th>
             </tr>
@@ -396,11 +397,28 @@ export function LeadsTable({
                 const isAuditing = auditingId === lead.id || auditingIds?.has(lead.id);
                 const targetUrl =
                   lead.gmb_website_url || lead.website_url || lead.discovered_website;
+                const isWebResultsSource =
+                  lead.website_source === 'WEB_RESULTS' ||
+                  (!lead.gmb_website_url && Boolean(lead.discovered_website || lead.website_url));
                 const socials = lead.social_profiles || lead.socials || {};
+                const otherDirsCount =
+                  (socials.other_directories?.length || 0) +
+                  (socials.mapquest ? 1 : 0) +
+                  (socials.yellowpages ? 1 : 0);
                 const healthScore = lead.audit_data?.healthScore;
                 const copyrightYear = lead.audit_data?.copyright?.detectedYear;
                 const hasSsl = lead.audit_data?.ssl?.valid;
                 const pageSpeedScore = lead.audit_data?.pageSpeed?.score;
+
+                const hasAnySocial = Boolean(
+                  socials.facebook ||
+                    socials.instagram ||
+                    socials.yelp ||
+                    socials.linkedin ||
+                    socials.twitter_x ||
+                    socials.tiktok ||
+                    otherDirsCount > 0
+                );
 
                 return (
                   <tr
@@ -476,21 +494,31 @@ export function LeadsTable({
                       )}
                     </td>
 
-                    {/* Website Health */}
+                    {/* Website Health & Source Indicator */}
                     <td className="py-4 px-4 align-top space-y-2">
                       {targetUrl ? (
                         <div className="space-y-1.5">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             <a
                               href={targetUrl}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-xs truncate max-w-[170px] inline-block"
+                              className="text-blue-600 dark:text-blue-400 hover:underline font-semibold text-xs truncate max-w-[170px] inline-block"
                             >
                               {targetUrl.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
                             </a>
                             <ExternalLink className="w-2.5 h-2.5 text-slate-400 dark:text-slate-500" />
+
+                            {/* Web Results Source Badge */}
+                            {isWebResultsSource && (
+                              <span
+                                title="Discovered from bottom Web results section"
+                                className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30"
+                              >
+                                Discovered from Web Results
+                              </span>
+                            )}
                           </div>
 
                           {/* Circular Speed Score Badge + SSL + Copyright */}
@@ -579,99 +607,102 @@ export function LeadsTable({
                       )}
                     </td>
 
-                    {/* Social Footprint */}
+                    {/* Social Footprint Column with distinct branded clickable badges */}
                     <td className="py-4 px-4 align-top">
-                      {socials &&
-                      (socials.facebook ||
-                        socials.instagram ||
-                        socials.yelp ||
-                        socials.tiktok ||
-                        socials.mapquest ||
-                        socials.yellowpages ||
-                        socials.linkedin ||
-                        socials.twitter_x) ? (
+                      {hasAnySocial ? (
                         <div className="flex items-center gap-1.5 flex-wrap">
+                          {/* Facebook (Blue) */}
                           {socials.facebook && (
                             <a
                               href={socials.facebook}
                               target="_blank"
                               rel="noreferrer"
-                              title={`Facebook: ${socials.facebook}`}
-                              className="px-2 py-1 rounded-md bg-blue-50 dark:bg-blue-600/15 hover:bg-blue-100 dark:hover:bg-blue-600/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-600/25 text-[10px] font-bold transition-colors"
+                              title={`Facebook Profile: ${socials.facebook}`}
+                              className="px-2 py-1 rounded-md bg-[#1877F2]/10 hover:bg-[#1877F2]/20 text-[#1877F2] border border-[#1877F2]/30 text-[10px] font-bold transition-colors inline-flex items-center gap-1"
                             >
-                              FB
+                              <span>FB</span>
                             </a>
                           )}
+
+                          {/* Instagram (Pink/Purple gradient) */}
                           {socials.instagram && (
                             <a
                               href={socials.instagram}
                               target="_blank"
                               rel="noreferrer"
-                              title={`Instagram: ${socials.instagram}`}
-                              className="px-2 py-1 rounded-md bg-pink-50 dark:bg-pink-600/15 hover:bg-pink-100 dark:hover:bg-pink-600/30 text-pink-600 dark:text-pink-400 border border-pink-200 dark:border-pink-600/25 text-[10px] font-bold transition-colors"
+                              title={`Instagram Profile: ${socials.instagram}`}
+                              className="px-2 py-1 rounded-md bg-gradient-to-r from-[#833AB4]/15 via-[#FD1D1D]/15 to-[#FCAF45]/15 hover:from-[#833AB4]/25 hover:to-[#FCAF45]/25 text-[#E1306C] border border-[#E1306C]/30 text-[10px] font-bold transition-colors inline-flex items-center gap-1"
                             >
-                              IG
+                              <span>IG</span>
                             </a>
                           )}
+
+                          {/* Yelp (Red) */}
                           {socials.yelp && (
                             <a
                               href={socials.yelp}
                               target="_blank"
                               rel="noreferrer"
-                              title={`Yelp: ${socials.yelp}`}
-                              className="px-2 py-1 rounded-md bg-red-50 dark:bg-red-600/15 hover:bg-red-100 dark:hover:bg-red-600/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-600/25 text-[10px] font-bold transition-colors"
+                              title={`Yelp Listing: ${socials.yelp}`}
+                              className="px-2 py-1 rounded-md bg-[#D32323]/10 hover:bg-[#D32323]/20 text-[#D32323] border border-[#D32323]/30 text-[10px] font-bold transition-colors inline-flex items-center gap-1"
                             >
-                              Yelp
+                              <span>Yelp</span>
                             </a>
                           )}
-                          {socials.mapquest && (
-                            <a
-                              href={socials.mapquest}
-                              target="_blank"
-                              rel="noreferrer"
-                              title={`MapQuest: ${socials.mapquest}`}
-                              className="px-2 py-1 rounded-md bg-emerald-50 dark:bg-emerald-600/15 hover:bg-emerald-100 dark:hover:bg-emerald-600/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-600/25 text-[10px] font-bold transition-colors"
-                            >
-                              MQ
-                            </a>
-                          )}
-                          {socials.yellowpages && (
-                            <a
-                              href={socials.yellowpages}
-                              target="_blank"
-                              rel="noreferrer"
-                              title={`YellowPages: ${socials.yellowpages}`}
-                              className="px-2 py-1 rounded-md bg-yellow-50 dark:bg-yellow-600/15 hover:bg-yellow-100 dark:hover:bg-yellow-600/30 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-600/25 text-[10px] font-bold transition-colors"
-                            >
-                              YP
-                            </a>
-                          )}
-                          {socials.tiktok && (
-                            <a
-                              href={socials.tiktok}
-                              target="_blank"
-                              rel="noreferrer"
-                              title={`TikTok: ${socials.tiktok}`}
-                              className="px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 text-[10px] font-bold transition-colors"
-                            >
-                              TikTok
-                            </a>
-                          )}
+
+                          {/* LinkedIn (Blue) */}
                           {socials.linkedin && (
                             <a
                               href={socials.linkedin}
                               target="_blank"
                               rel="noreferrer"
-                              title={`LinkedIn: ${socials.linkedin}`}
-                              className="px-2 py-1 rounded-md bg-sky-50 dark:bg-sky-600/15 hover:bg-sky-100 dark:hover:bg-sky-600/30 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-600/25 text-[10px] font-bold transition-colors"
+                              title={`LinkedIn Profile: ${socials.linkedin}`}
+                              className="px-2 py-1 rounded-md bg-[#0A66C2]/10 hover:bg-[#0A66C2]/20 text-[#0A66C2] border border-[#0A66C2]/30 text-[10px] font-bold transition-colors inline-flex items-center gap-1"
                             >
-                              IN
+                              <span>IN</span>
                             </a>
+                          )}
+
+                          {/* Twitter / X */}
+                          {socials.twitter_x && (
+                            <a
+                              href={socials.twitter_x}
+                              target="_blank"
+                              rel="noreferrer"
+                              title={`Twitter/X Profile: ${socials.twitter_x}`}
+                              className="px-2 py-1 rounded-md bg-slate-800/10 dark:bg-slate-700/60 hover:bg-slate-800/20 text-slate-800 dark:text-slate-200 border border-slate-400 dark:border-slate-600 text-[10px] font-bold transition-colors inline-flex items-center gap-1"
+                            >
+                              <span>X</span>
+                            </a>
+                          )}
+
+                          {/* TikTok */}
+                          {socials.tiktok && (
+                            <a
+                              href={socials.tiktok}
+                              target="_blank"
+                              rel="noreferrer"
+                              title={`TikTok Profile: ${socials.tiktok}`}
+                              className="px-2 py-1 rounded-md bg-slate-900/10 dark:bg-slate-800/60 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 text-[10px] font-bold transition-colors inline-flex items-center gap-1"
+                            >
+                              <span>TikTok</span>
+                            </a>
+                          )}
+
+                          {/* Directory Links Count Pill */}
+                          {otherDirsCount > 0 && (
+                            <span
+                              title={`Verified Directory Listings: ${otherDirsCount}`}
+                              className="px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold inline-flex items-center gap-1"
+                            >
+                              <Layers className="w-2.5 h-2.5 text-slate-400" />
+                              <span>Dirs ({otherDirsCount})</span>
+                            </span>
                           )}
                         </div>
                       ) : (
-                        <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">
-                          No direct socials detected
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700/50">
+                          No Socials Found
                         </span>
                       )}
                     </td>
@@ -785,7 +816,7 @@ export function LeadsTable({
           <strong className="text-slate-900 dark:text-white">{leads.length}</strong> total pipeline prospects
         </span>
         <div className="flex items-center gap-3">
-          <span>Dual-Engine: Chrome Harvester + Server Audit Engine</span>
+          <span>Dual-Engine: Chrome Harvester (2-Tier) + Server Audit Engine</span>
         </div>
       </div>
     </div>

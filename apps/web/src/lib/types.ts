@@ -11,6 +11,7 @@ export interface SocialLinks {
   yelp?: string | null;
   mapquest?: string | null;
   yellowpages?: string | null;
+  other_directories?: string[];
 }
 
 export interface WebResultLink {
@@ -87,6 +88,7 @@ export interface QualificationLog {
   primary_reason: string;
   qualification_tag:
     | 'NO_WEBSITE'
+    | 'NO_ONLINE_PRESENCE'
     | 'OUTDATED_WEBSITE'
     | 'SLOW_PAGESPEED'
     | 'MISSING_SCHEMA'
@@ -161,6 +163,7 @@ export interface Lead {
   gmb_website_url?: string | null;
   website_url?: string | null;
   discovered_website?: string | null;
+  website_source?: 'GMB_BUTTON' | 'WEB_RESULTS' | 'NONE' | string | null;
   web_results_links?: WebResultLink[] | null;
   email?: string | null;
   status: LeadStatus;
@@ -192,6 +195,7 @@ export interface ExtractedLeadInput {
   gmb_website_url?: string | null;
   website_url?: string | null;
   discovered_website?: string | null;
+  website_source?: 'GMB_BUTTON' | 'WEB_RESULTS' | 'NONE' | string | null;
   web_results_links?: WebResultLink[] | null;
   socials?: SocialLinks | null;
   social_profiles?: SocialLinks | null;
