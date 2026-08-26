@@ -50,9 +50,9 @@
     if (!rawUrl) return '';
     let url = rawUrl.trim();
 
-    // Decode Google redirects: /url?q=... or google.com/url?q=...
-    if (url.includes('google.com/url?q=') || url.includes('/url?q=')) {
-      const match = url.match(/[?&]q=([^&]+)/);
+    // Decode Google redirects: /url?q=... or google.com/url?q=... or /url?url=...
+    if (url.includes('/url?') || url.includes('google.com/url?')) {
+      const match = url.match(/[?&](?:q|url)=([^&]+)/);
       if (match && match[1]) {
         try {
           url = decodeURIComponent(match[1]);
@@ -76,15 +76,21 @@
       return '';
     }
 
-    // Sanitize Facebook / Instagram / Twitter tracking junk
+    // Ensure valid protocol prefix if missing
+    if (!/^https?:\/\//i.test(url)) {
+      url = `https://${url}`;
+    }
+
+    // Sanitize Facebook / Instagram / Twitter / Yelp tracking junk
     try {
       if (
         url.includes('facebook.com') ||
         url.includes('instagram.com') ||
         url.includes('twitter.com') ||
-        url.includes('x.com')
+        url.includes('x.com') ||
+        url.includes('yelp.com')
       ) {
-        const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+        const parsed = new URL(url);
         ['ref', 'fref', 'mibextid', 'locale', 'eav', 'paipv', 'utm_source', 'utm_medium', 'utm_campaign'].forEach(
           (p) => parsed.searchParams.delete(p)
         );
@@ -101,10 +107,10 @@
   function getActiveDetailPanes() {
     const panes = [];
     const containers = document.querySelectorAll(
-      'div[role="main"] div.m6QErb, div[tabindex="-1"] div.m6QErb, div.m6QErb.DxyBCb, div.m6QErb, div[role="main"], div[tabindex="-1"]'
+      'div[role="main"] div.m6QErb, div[tabindex="-1"] div.m6QErb, div.m6QErb.DxyBCb, div.m6QErb, div[role="main"], div[tabindex="-1"], div.section-layout'
     );
     for (const el of containers) {
-      if (el.scrollHeight > el.clientHeight && el.clientHeight > 200) {
+      if (el.scrollHeight > el.clientHeight && el.clientHeight > 180) {
         panes.push(el);
       }
     }
@@ -147,13 +153,13 @@
     for (let step = 1; step <= 4; step++) {
       for (const pane of panes) {
         try {
-          const targetScroll = Math.min(pane.scrollHeight, step * 600);
+          const targetScroll = Math.min(pane.scrollHeight, step * 650);
           pane.scrollTop = targetScroll;
-          pane.dispatchEvent(new WheelEvent('wheel', { deltaY: 600, bubbles: true }));
+          pane.dispatchEvent(new WheelEvent('wheel', { deltaY: 650, bubbles: true }));
           pane.dispatchEvent(new Event('scroll', { bubbles: true }));
         } catch (e) {}
       }
-      await new Promise((res) => setTimeout(res, 400));
+      await new Promise((res) => setTimeout(res, 350));
     }
 
     // Scroll to absolute bottom
@@ -166,7 +172,7 @@
     }
 
     // Generous wait for Google Maps to resolve Web results APIs and mount DOM cards
-    await new Promise((res) => setTimeout(res, 800));
+    await new Promise((res) => setTimeout(res, 750));
   }
 
   /**
@@ -193,7 +199,7 @@
     
     // Also include any links from dedicated Web Results containers
     const webResultElements = document.querySelectorAll(
-      '[aria-label*="Web results"], div:has(> h2:contains("Web results")), div.fontBodyMedium, div.m6QErb'
+      '[aria-label*="Web results"], div.fontBodyMedium, div.m6QErb, div.k7A2pe'
     );
     webResultElements.forEach((el) => {
       el.querySelectorAll('a[href]').forEach((a) => {
@@ -226,10 +232,14 @@
       const linkText = cleanText(a.innerText || a.getAttribute('aria-label') || '');
 
       // Categorize Links
-      if (lower.includes('facebook.com') && !lower.includes('/sharer') && !lower.includes('/dialog')) {
+      if (
+        (lower.includes('facebook.com') || lower.includes('fb.me') || lower.includes('fb.com')) &&
+        !lower.includes('/sharer') &&
+        !lower.includes('/dialog')
+      ) {
         if (!socialProfiles.facebook) socialProfiles.facebook = href;
         web_results_links.push({ type: 'facebook', url: href, title: linkText });
-      } else if (lower.includes('instagram.com') && !lower.includes('/p/')) {
+      } else if (lower.includes('instagram.com') || lower.includes('instagr.am')) {
         if (!socialProfiles.instagram) socialProfiles.instagram = href;
         web_results_links.push({ type: 'instagram', url: href, title: linkText });
       } else if (lower.includes('yelp.com/biz/') || lower.includes('yelp.com')) {
@@ -238,7 +248,11 @@
       } else if (lower.includes('linkedin.com/company/') || lower.includes('linkedin.com/in/')) {
         if (!socialProfiles.linkedin) socialProfiles.linkedin = href;
         web_results_links.push({ type: 'linkedin', url: href, title: linkText });
-      } else if (lower.includes('twitter.com') || lower.includes('x.com')) {
+      } else if (
+        (lower.includes('twitter.com') || lower.includes('x.com')) &&
+        !lower.includes('/intent') &&
+        !lower.includes('/share')
+      ) {
         if (!socialProfiles.twitter_x) socialProfiles.twitter_x = href;
         web_results_links.push({ type: 'twitter_x', url: href, title: linkText });
       } else if (lower.includes('tiktok.com/@') || lower.includes('tiktok.com')) {
@@ -618,6 +632,7 @@
             count: scrapedLeads.length,
             maxLeads: maxLeadsTarget,
             latestLead: latest || null,
+            leads: scrapedLeads,
           });
         } catch (cardErr) {
           console.warn('[FetchPro] Card crawl error:', cardErr);
@@ -667,7 +682,7 @@
     if (message.type === 'PING') {
       sendResponse({
         status: 'READY',
-        isMaps: window.location.href.includes('google.com/maps'),
+        isMaps: window.location.href.includes('google.com/maps') || window.location.href.includes('maps.google.com'),
         url: window.location.href,
         isScraping,
         count: scrapedLeads.length,

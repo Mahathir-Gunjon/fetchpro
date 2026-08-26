@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     'leadflow_api_url',
     'leadflow_api_key',
     'leadflow_max_leads',
-    'leadflow_leads'
+    'leadflow_leads',
   ]);
 
   const activeUrl = (settings.leadflow_api_url || 'http://localhost:3000').trim().replace(/\/$/, '');
@@ -93,14 +93,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     currentTab = tabs[0];
     if (currentTab && currentTab.url) {
-      isGoogleMaps = currentTab.url.includes('google.com/maps') || currentTab.url.includes('maps.google.com');
+      isGoogleMaps =
+        currentTab.url.includes('google.com/maps') ||
+        currentTab.url.includes('maps.google.com') ||
+        currentTab.url.includes('google.com/search');
     }
   } catch (err) {
     console.error('Failed to query active tab:', err);
   }
 
   // Ensure content script is running on Google Maps
-  if (isGoogleMaps && currentTab) {
+  if (isGoogleMaps && currentTab && currentTab.id) {
     pageStatusPill.className = 'status-pill status-pill-active';
     pageStatusText.textContent = 'Google Maps Active';
     mapNotice.classList.add('hidden');
@@ -118,7 +121,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       try {
         await chrome.scripting.executeScript({
           target: { tabId: currentTab.id },
-          files: ['content.js']
+          files: ['content.js'],
         });
         setTimeout(async () => {
           try {
@@ -163,21 +166,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     leadsList.innerHTML = '';
-    extractedLeads.slice(-30).reverse().forEach((lead) => {
-      const item = document.createElement('div');
-      item.className = 'lead-item';
-      item.innerHTML = `
+    extractedLeads
+      .slice(-30)
+      .reverse()
+      .forEach((lead) => {
+        const item = document.createElement('div');
+        item.className = 'lead-item';
+        item.innerHTML = `
         <div style="flex:1; overflow:hidden;">
           <div class="lead-name" title="${escapeHtml(lead.business_name)}">${escapeHtml(lead.business_name)}</div>
           <div class="lead-meta">
-            ${lead.rating ? `<span class="lead-badge lead-badge-rating">★ ${lead.rating} (${lead.reviews_count || 0})</span>` : ''}
-            ${lead.website_url ? `<span class="lead-badge lead-badge-web">🌐 Website</span>` : `<span class="lead-badge lead-badge-noweb">🔥 No Web</span>`}
-            ${lead.phone ? `<span class="lead-badge" style="background:rgba(16,185,129,0.15); color:#34d399;">📞 ${escapeHtml(lead.phone)}</span>` : ''}
+            ${
+              lead.rating
+                ? `<span class="lead-badge lead-badge-rating">★ ${lead.rating} (${lead.reviews_count || 0})</span>`
+                : ''
+            }
+            ${
+              lead.website_url
+                ? `<span class="lead-badge lead-badge-web">🌐 Website</span>`
+                : `<span class="lead-badge lead-badge-noweb">🔥 No Web</span>`
+            }
+            ${
+              lead.social_profiles?.facebook || lead.socials?.facebook
+                ? `<span class="lead-badge" style="background:rgba(24,119,242,0.2); color:#60a5fa;">FB</span>`
+                : ''
+            }
+            ${
+              lead.phone
+                ? `<span class="lead-badge" style="background:rgba(16,185,129,0.15); color:#34d399;">📞 ${escapeHtml(
+                    lead.phone
+                  )}</span>`
+                : ''
+            }
           </div>
         </div>
       `;
-      leadsList.appendChild(item);
-    });
+        leadsList.appendChild(item);
+      });
   }
 
   function setScrapingState(scraping) {
@@ -204,7 +229,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function escapeHtml(str) {
     if (!str) return '';
-    return str.replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    return str.replace(
+      /[&<>"']/g,
+      (m) =>
+        ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+        }[m])
+    );
   }
 
   btnOpenMaps.addEventListener('click', () => {
@@ -218,19 +253,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    if (!currentTab || !currentTab.id) return;
+
     if (!isScraping) {
       const maxLeads = parseInt(maxLeadsSelect.value, 10) || 100;
       setScrapingState(true);
       try {
         await chrome.tabs.sendMessage(currentTab.id, {
           type: 'START_SCRAPING',
-          maxLeads
+          maxLeads,
         });
       } catch (err) {
         try {
           await chrome.scripting.executeScript({
             target: { tabId: currentTab.id },
-            files: ['content.js']
+            files: ['content.js'],
           });
           setTimeout(() => {
             chrome.tabs.sendMessage(currentTab.id, { type: 'START_SCRAPING', maxLeads }).catch(() => {});
@@ -260,7 +297,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (confirm('Clear all scraped leads from extension buffer?')) {
       extractedLeads = [];
       await chrome.storage.local.set({ leadflow_leads: [] });
-      if (isGoogleMaps && currentTab) {
+      if (isGoogleMaps && currentTab && currentTab.id) {
         chrome.tabs.sendMessage(currentTab.id, { type: 'CLEAR_LEADS' }).catch(() => {});
       }
       renderLeads([]);
@@ -289,12 +326,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+            ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
           },
           body: JSON.stringify({
             leads: extractedLeads,
-            source: 'chrome-extension'
-          })
+            source: 'chrome-extension',
+          }),
         });
       } catch (fetchErr) {
         if (rawUrl.includes('localhost')) {
@@ -304,12 +341,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+              ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
             },
             body: JSON.stringify({
               leads: extractedLeads,
-              source: 'chrome-extension'
-            })
+              source: 'chrome-extension',
+            }),
           });
         } else {
           throw fetchErr;
@@ -319,7 +356,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        showFeedback(`Successfully synced ${data.syncedCount || extractedLeads.length} leads to FetchPro Dashboard! 🎉`, true);
+        showFeedback(
+          `Successfully synced ${data.syncedCount || extractedLeads.length} leads to FetchPro Dashboard! 🎉`,
+          true
+        );
       } else {
         throw new Error(data.error || `Server responded with status ${response.status}`);
       }
@@ -345,7 +385,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await chrome.storage.local.set({
       leadflow_api_url: rawUrl,
       leadflow_api_key: apiKey,
-      leadflow_max_leads: maxLeads
+      leadflow_max_leads: maxLeads,
     });
 
     currentTargetLabel.textContent = rawUrl.replace(/^https?:\/\//, '');
@@ -360,20 +400,40 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    const headers = ['Business Name', 'Category', 'Rating', 'Reviews Count', 'Phone', 'Address', 'GMB Website URL', 'Discovered Website', 'Google Maps URL'];
-    const rows = extractedLeads.map((l) => [
-      `"${(l.business_name || '').replace(/"/g, '""')}"`,
-      `"${(l.category || '').replace(/"/g, '""')}"`,
-      l.rating || '',
-      l.reviews_count || 0,
-      `"${(l.phone || '').replace(/"/g, '""')}"`,
-      `"${(l.address || '').replace(/"/g, '""')}"`,
-      `"${(l.gmb_website_url || '').replace(/"/g, '""')}"`,
-      `"${(l.discovered_website || l.website_url || '').replace(/"/g, '""')}"`,
-      `"${(l.maps_url || '').replace(/"/g, '""')}"`
-    ]);
+    const headers = [
+      'Business Name',
+      'Category',
+      'Rating',
+      'Reviews Count',
+      'Phone',
+      'Address',
+      'GMB Website URL',
+      'Discovered Website',
+      'Facebook URL',
+      'Instagram URL',
+      'Yelp URL',
+      'Google Maps URL',
+    ];
+    const rows = extractedLeads.map((l) => {
+      const soc = l.social_profiles || l.socials || {};
+      return [
+        `"${(l.business_name || '').replace(/"/g, '""')}"`,
+        `"${(l.category || '').replace(/"/g, '""')}"`,
+        l.rating || '',
+        l.reviews_count || 0,
+        `"${(l.phone || '').replace(/"/g, '""')}"`,
+        `"${(l.address || '').replace(/"/g, '""')}"`,
+        `"${(l.gmb_website_url || '').replace(/"/g, '""')}"`,
+        `"${(l.discovered_website || l.website_url || '').replace(/"/g, '""')}"`,
+        `"${(soc.facebook || '').replace(/"/g, '""')}"`,
+        `"${(soc.instagram || '').replace(/"/g, '""')}"`,
+        `"${(soc.yelp || '').replace(/"/g, '""')}"`,
+        `"${(l.maps_url || '').replace(/"/g, '""')}"`,
+      ];
+    });
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const csvContent =
+      'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
@@ -400,11 +460,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
 
-      chrome.storage.local.get(['leadflow_leads'], (res) => {
-        if (res && res.leadflow_leads) {
-          renderLeads(res.leadflow_leads);
-        }
-      });
+      if (message.leads) {
+        renderLeads(message.leads);
+      } else {
+        chrome.storage.local.get(['leadflow_leads'], (res) => {
+          if (res && res.leadflow_leads) {
+            renderLeads(res.leadflow_leads);
+          }
+        });
+      }
     } else if (message.type === 'SCRAPE_COMPLETED') {
       setScrapingState(false);
       renderLeads(message.leads);
