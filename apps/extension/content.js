@@ -447,7 +447,7 @@
         consecutiveNoNew = 0;
       }
 
-      if (consecutiveNoNew >= 6) {
+      if (consecutiveNoNew >= 12) {
         console.log('[FetchPro] Reached end of Google Maps feed.');
         break;
       }
