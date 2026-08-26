@@ -3,10 +3,11 @@
  *
  * Implements:
  * 1. Strict Target Limit enforcement (e.g. 15 leads means exactly 15 leads)
- * 2. Reliable 4-step auto-scroll for dynamic "Web results" rendering
- * 3. 2-Tier Link & Social Media Harvester:
- *    - Tier 1: Official GMB Action Website Button
- *    - Tier 2: Deep "Web results" List & Social Card Extractor (Facebook, Instagram, X/Twitter, LinkedIn, Yelp, TikTok, etc.)
+ * 2. Multi-Pass progressive auto-scroll and DOM polling for dynamic "Web results"
+ * 3. 3-Strategy Link & Social Media Harvester:
+ *    - Strategy A: Direct Anchors & Decoded Google Redirects (/url?q=...)
+ *    - Strategy B: Dynamic Data Attributes (data-url, data-href, jsaction)
+ *    - Strategy C: Web Result Breadcrumb Text Parser (converts "facebook.com › people › ..." to clean direct URLs)
  * 4. Tracking parameter sanitizer for direct, actionable social URLs
  */
 
@@ -26,7 +27,7 @@
     if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage?.local) {
       try {
         chrome.storage.local.set(data, () => {
-          if (chrome.runtime?.lastError) {
+          if (chrome.runtime.lastError) {
             // Silently handled
           }
         });
@@ -41,7 +42,7 @@
     if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.runtime?.sendMessage) {
       try {
         chrome.runtime.sendMessage(msg, () => {
-          if (chrome.runtime?.lastError) {
+          if (chrome.runtime.lastError) {
             // Silently handle disconnected port when popup is closed
           }
         });
@@ -63,7 +64,7 @@
 
     // Decode Google redirects: /url?q=... or google.com/url?q=... or /url?url=...
     if (url.includes('/url?') || url.includes('google.com/url?')) {
-      const match = url.match(/[?&](?:q|url)=([^&]+)/);
+      const match = url.match(/[?&](?:q|url)=([^&]+)/i);
       if (match && match[1]) {
         try {
           url = decodeURIComponent(match[1]);
@@ -78,10 +79,10 @@
       !url ||
       url.startsWith('/') ||
       url.startsWith('#') ||
-      url.includes('google.com') ||
+      url.includes('google.com/search') ||
+      url.includes('google.com/maps') ||
       url.includes('gstatic.com') ||
       url.includes('googleadservices.com') ||
-      url.includes('maps.google') ||
       url.includes('accounts.google')
     ) {
       return '';
@@ -117,14 +118,15 @@
    */
   function getActiveDetailPanes() {
     const panes = [];
-    const containers = document.querySelectorAll(
-      'div[role="main"] div.m6QErb, div[tabindex="-1"] div.m6QErb, div.m6QErb.DxyBCb, div.m6QErb, div[role="main"], div[tabindex="-1"], div.section-layout'
-    );
-    for (const el of containers) {
-      if (el.scrollHeight > el.clientHeight && el.clientHeight > 180) {
-        panes.push(el);
-      }
-    }
+    const containers = document.querySelectorAll('div, section, main');
+    containers.forEach((el) => {
+      try {
+        if (el.scrollHeight > el.clientHeight && el.clientHeight > 150) {
+          // Exclude the search results feed if possible, or include all scrollables
+          panes.push(el);
+        }
+      } catch (e) {}
+    });
     if (panes.length === 0) {
       const main = document.querySelector('div[role="main"]') || document.querySelector('div[tabindex="-1"]');
       if (main) panes.push(main);
@@ -156,11 +158,13 @@
 
   /**
    * 1. Multi-step scroll of the active detail container to force lazy "Web results" to render
+   * and poll for dynamic Web results nodes
    */
   async function ensureWebResultsRendered() {
     const panes = getActiveDetailPanes();
     if (panes.length === 0) return;
 
+    // Progressive 4-stage scroll down to the bottom
     for (let step = 1; step <= 4; step++) {
       for (const pane of panes) {
         try {
@@ -177,20 +181,50 @@
     for (const pane of panes) {
       try {
         pane.scrollTop = pane.scrollHeight;
-        pane.dispatchEvent(new WheelEvent('wheel', { deltaY: 1200, bubbles: true }));
+        pane.dispatchEvent(new WheelEvent('wheel', { deltaY: 1500, bubbles: true }));
         pane.dispatchEvent(new Event('scroll', { bubbles: true }));
       } catch (e) {}
     }
 
-    // Wait for Google Maps to resolve Web results APIs and mount DOM cards
-    await new Promise((res) => setTimeout(res, 850));
+    // Dynamic polling wait: wait until "Web results" text or external links appear in DOM
+    for (let p = 0; p < 8; p++) {
+      const hasWebResults =
+        document.body.innerText.includes('Web results') ||
+        document.querySelector('a[href*="facebook.com"], a[href*="instagram.com"], a[href*="yelp.com"], a[href*="bbb.org"]');
+      if (hasWebResults) {
+        await new Promise((res) => setTimeout(res, 400));
+        break;
+      }
+      await new Promise((res) => setTimeout(res, 250));
+    }
   }
 
   /**
-   * 2. Extract official GMB Button AND Web Results links (2-Tier Extraction)
+   * Converts Google Maps breadcrumb text (e.g. "https://www.facebook.com › people › Patriot-P...")
+   * into a valid full URL
+   */
+  function parseBreadcrumbUrl(text) {
+    if (!text) return null;
+    const clean = text.trim();
+    if (!clean.includes('›') && !clean.includes('>') && !clean.startsWith('http')) return null;
+
+    let converted = clean
+      .replace(/\s*[›>]\s*/g, '/')
+      .replace(/\s+/g, '')
+      .replace(/\.\.\.$/, '');
+
+    if (!/^https?:\/\//i.test(converted)) {
+      converted = `https://${converted}`;
+    }
+
+    return unmaskAndCleanUrl(converted);
+  }
+
+  /**
+   * 2. Extract official GMB Button AND Web Results links (3-Strategy Extraction)
    */
   function extractAllBusinessLinks() {
-    // Tier 1: Check official Top Action Website Button
+    // Strategy 1: Official Top Action Website Button
     const officialWebsiteBtn = document.querySelector(
       'a[data-item-id="authority"], a[aria-label*="Website"], a[aria-label*="website"], a[data-tooltip*="website"]'
     );
@@ -202,10 +236,6 @@
         primaryWebsite = cleanPrimary;
       }
     }
-
-    // Tier 2: Extract ALL links across the document excluding feed cards
-    const feedAnchors = new Set(Array.from(document.querySelectorAll('div[role="feed"] a, a.hfpxzc')));
-    const allAnchors = Array.from(document.querySelectorAll('a[href]')).filter((a) => !feedAnchors.has(a));
 
     const socialProfiles = {
       facebook: null,
@@ -222,16 +252,15 @@
 
     let fallbackWebsite = null;
     const web_results_links = [];
+    const seenLinks = new Set();
 
-    allAnchors.forEach((a) => {
-      const rawHref = a.getAttribute('href') || a.href || '';
+    function registerDiscoveredUrl(rawHref, linkText = '') {
       const href = unmaskAndCleanUrl(rawHref);
-      if (!href) return;
+      if (!href || seenLinks.has(href)) return;
+      seenLinks.add(href);
 
       const lower = href.toLowerCase();
-      const linkText = cleanText(a.innerText || a.getAttribute('aria-label') || '');
 
-      // Categorize Links
       if (
         (lower.includes('facebook.com') || lower.includes('fb.me') || lower.includes('fb.com')) &&
         !lower.includes('/sharer') &&
@@ -280,16 +309,64 @@
         socialProfiles.other_directories.push(href);
         web_results_links.push({ type: 'directory', url: href, title: linkText });
       } else {
-        // If it's not a social/directory platform, it is a business website candidate
+        // If it's not a known directory/social platform, it is a business website candidate
         if (!fallbackWebsite && !primaryWebsite) {
           fallbackWebsite = href;
         }
         web_results_links.push({ type: 'website', url: href, title: linkText });
       }
+    }
+
+    // Strategy A: Direct Anchors across the entire page (excluding search feed links)
+    const feedAnchors = new Set(Array.from(document.querySelectorAll('div[role="feed"] a.hfpxzc, a.hfpxzc')));
+    const allAnchors = Array.from(document.querySelectorAll('a[href]')).filter((a) => !feedAnchors.has(a));
+
+    allAnchors.forEach((a) => {
+      const rawHref = a.getAttribute('href') || a.href || '';
+      const linkText = cleanText(a.innerText || a.getAttribute('aria-label') || '');
+      registerDiscoveredUrl(rawHref, linkText);
+    });
+
+    // Strategy B: Data attributes on elements in Web results cards
+    const dataNodes = document.querySelectorAll('[data-url], [data-href], [data-website-url]');
+    dataNodes.forEach((node) => {
+      const dataUrl = node.getAttribute('data-url') || node.getAttribute('data-href') || node.getAttribute('data-website-url') || '';
+      if (dataUrl) {
+        registerDiscoveredUrl(dataUrl, cleanText(node.innerText || ''));
+      }
+    });
+
+    // Strategy C: Parse Web Results breadcrumb text lines (e.g. "https://www.facebook.com › people › Patriot-P...")
+    const allTextDivs = document.querySelectorAll('div, span, cite');
+    allTextDivs.forEach((el) => {
+      const txt = (el.innerText || '').trim();
+      if (
+        (txt.includes('facebook.com') ||
+          txt.includes('instagram.com') ||
+          txt.includes('yelp.com') ||
+          txt.includes('twitter.com') ||
+          txt.includes('x.com') ||
+          txt.includes('linkedin.com') ||
+          txt.includes('bbb.org') ||
+          txt.includes('homeadvisor.com')) &&
+        (txt.includes('›') || txt.includes('>') || txt.startsWith('http'))
+      ) {
+        const parsedUrl = parseBreadcrumbUrl(txt);
+        if (parsedUrl) {
+          registerDiscoveredUrl(parsedUrl, txt);
+        }
+      }
     });
 
     const resolvedWebsite = primaryWebsite || fallbackWebsite;
     const websiteSource = primaryWebsite ? 'GMB_BUTTON' : fallbackWebsite ? 'WEB_RESULTS' : 'NONE';
+
+    console.log('[FetchPro] Resolved Business Links:', {
+      website_url: resolvedWebsite,
+      website_source: websiteSource,
+      social_profiles: socialProfiles,
+      web_results_count: web_results_links.length,
+    });
 
     return {
       website_url: resolvedWebsite,
@@ -424,7 +501,7 @@
         description = cleanText(descEl.innerText || '');
       }
 
-      // 9. 2-Tier Link & Social Extraction
+      // 9. 3-Strategy Link & Social Extraction
       const {
         website_url,
         website_source,
@@ -472,6 +549,7 @@
           website_source: scrapedLeads[existingIndex].website_source || website_source,
           social_profiles: social_profiles || scrapedLeads[existingIndex].social_profiles,
           socials: social_profiles || scrapedLeads[existingIndex].socials,
+          web_results_links: web_results_links || scrapedLeads[existingIndex].web_results_links,
         };
         return 0;
       }
@@ -513,11 +591,11 @@
           const cardName = cleanText(cardAnchor.getAttribute('aria-label') || '');
           updateFloatingHUD('Inspecting Profile', scrapedLeads.length, true, cardName);
 
-          // 1. Click card to open overview & details and wait 1.25s
+          // 1. Click card to open overview & details and wait 1.5s for details to render
           cardAnchor.click();
-          await new Promise((r) => setTimeout(r, 1250));
+          await new Promise((r) => setTimeout(r, 1500));
 
-          // 2. Ensure Web results rendered & extract 2-tier website + socials
+          // 2. Ensure Web results rendered & extract 3-strategy website + socials
           await deepInspectActiveProfile();
 
           const latest = scrapedLeads[scrapedLeads.length - 1];
